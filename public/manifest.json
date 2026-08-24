@@ -1,0 +1,8 @@
+{
+  "name": "ระบบลงเวลาลา",
+  "short_name": "ใบลา",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF7EF",
+  "theme_color": "#1B2A4A"
+}

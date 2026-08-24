@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif;
+    background-color: #FAF7EF;
+    color: #1B2A4A;
+  }
+  h1, h2, h3, .font-display {
+    font-family: 'Noto Serif Thai', serif;
+  }
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid #C89B3C;
+    outline-offset: 2px;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+@layer components {
+  /* The signature element: an approval "stamp" instead of a plain status pill */
+  .stamp {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2;
+    transform: rotate(-2deg);
+  }
+  .stamp-approved {
+    @apply stamp text-sage border-sage bg-sage-light;
+  }
+  .stamp-rejected {
+    @apply stamp text-clay border-clay bg-clay-light;
+    transform: rotate(2deg);
+  }
+  .stamp-pending {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 border-dashed text-ink-soft border-ink-soft/50 bg-transparent;
+  }
+  .stamp-cancelled {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 text-ink-soft/70 border-ink-soft/30 bg-ink-soft/5 line-through;
+  }
+
+  .card {
+    @apply bg-white rounded-card shadow-stamp border border-ink/5;
+  }
+
+  .btn-primary {
+    @apply bg-ink text-paper font-semibold rounded-lg px-5 py-3 hover:bg-ink-light active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply bg-white text-ink font-semibold rounded-lg px-5 py-3 border-2 border-ink/15 hover:border-ink/30 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-danger {
+    @apply bg-clay text-white font-semibold rounded-lg px-5 py-3 hover:bg-clay/90 active:scale-[0.98] transition-all;
+  }
+  .input-field {
+    @apply w-full rounded-lg border-2 border-ink/15 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/50 focus:border-brass outline-none transition-colors;
+  }
+}
