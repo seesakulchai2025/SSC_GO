@@ -101,25 +101,29 @@ export default function TeamCalendar() {
       </div>
 
       {selectedDate && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="font-display font-semibold text-ink">{formatThaiDate(selectedDate)}</p>
-            <button onClick={() => setSelectedDate(null)} className="text-ink-soft text-sm">
-              ปิด
-            </button>
-          </div>
-          <div className="space-y-2">
-            {selectedList.map((r) => (
-              <div key={r.id} className="text-sm border-b border-ink/10 pb-2 last:border-0 last:pb-0">
-                <p className="font-semibold text-ink">
-                  {r.employeeName} <span className="text-ink-soft font-normal">· {r.department}</span>
-                </p>
-                <p className="text-ink-soft">
-                  {r.leaveTypeName}
-                  {r.duration && r.duration !== 'full' ? ` (${DURATION_LABELS[r.duration]})` : ''}
-                </p>
-              </div>
-            ))}
+        <div className="fixed inset-0 z-30 bg-ink/40 flex items-center justify-center px-4 no-print" onClick={() => setSelectedDate(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="card w-full max-w-md p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <p className="font-display font-semibold text-ink text-lg">{formatThaiDate(selectedDate)}</p>
+              <button onClick={() => setSelectedDate(null)} className="text-ink-soft text-xl leading-none">
+                ×
+              </button>
+            </div>
+            <div className="space-y-3">
+              {selectedList.length === 0 && <p className="text-ink-soft text-sm">ไม่มีใครลาวันนี้</p>}
+              {selectedList.map((r) => (
+                <div key={r.id} className="border-b border-ink/10 pb-3 last:border-0 last:pb-0">
+                  <p className="font-semibold text-ink">
+                    {r.employeeName} <span className="text-ink-soft font-normal text-sm">· {r.department}</span>
+                  </p>
+                  <p className="text-sm text-ink-soft">
+                    {r.leaveTypeName}
+                    {r.duration && r.duration !== 'full' ? ` (${DURATION_LABELS[r.duration]})` : ''}
+                  </p>
+                  {r.reason && <p className="text-sm text-ink mt-1">"{r.reason}"</p>}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

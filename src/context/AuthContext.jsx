@@ -82,8 +82,39 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
+  // พนักงานลงทะเบียนบัญชีของตัวเอง (ใช้รหัสของบริษัทกันคนนอกสมัครมั่ว)
+  const registerSelf = useCallback(async ({ name, department, pin, companyCode }) => {
+    await ensureAnonymousSession()
+    if (companyCode !== import.meta.env.VITE_SETUP_PIN) {
+      throw new Error('รหัสของบริษัทไม่ถูกต้อง กรุณาสอบถามแอดมิน')
+    }
+    if (!name.trim()) {
+      throw new Error('กรุณากรอกชื่อ-นามสกุล')
+    }
+    const existing = await getDocs(query(collection(db, 'employees'), where('pin', '==', pin)))
+    if (!existing.empty) {
+      throw new Error('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
+    }
+    const docRef = await addDoc(collection(db, 'employees'), {
+      name: name.trim(),
+      pin,
+      role: 'employee',
+      department: department || '',
+      gender: '',
+      active: true,
+      balances: {},
+      createdAt: serverTimestamp(),
+    })
+    const data = { id: docRef.id, name: name.trim(), pin, role: 'employee', department: department || '', gender: '', active: true, balances: {} }
+    setEmployee(data)
+    localStorage.setItem(STORAGE_KEY, docRef.id)
+    return data
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ employee, loading, needsSetup, loginWithPin, logout, createFirstAdmin, setNeedsSetup }}>
+    <AuthContext.Provider
+      value={{ employee, loading, needsSetup, loginWithPin, logout, createFirstAdmin, registerSelf, setNeedsSetup }}
+    >
       {children}
     </AuthContext.Provider>
   )

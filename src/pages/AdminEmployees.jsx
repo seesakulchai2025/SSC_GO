@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 
+const GENDER_LABELS = { female: 'หญิง', male: 'ชาย' }
+
 function EmployeeRow({ emp, leaveTypes, onSave }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({
@@ -9,6 +11,7 @@ function EmployeeRow({ emp, leaveTypes, onSave }) {
     pin: emp.pin,
     department: emp.department || '',
     role: emp.role,
+    gender: emp.gender || '',
     active: emp.active !== false,
     balances: { ...(emp.balances || {}) },
   })
@@ -27,7 +30,9 @@ function EmployeeRow({ emp, leaveTypes, onSave }) {
             {emp.role === 'admin' && <span className="ml-2 text-xs stamp-pending">แอดมิน</span>}
             {emp.active === false && <span className="ml-2 text-xs text-clay font-semibold">ระงับใช้งาน</span>}
           </p>
-          <p className="text-xs text-ink-soft font-mono">PIN: {emp.pin}</p>
+          <p className="text-xs text-ink-soft font-mono">
+            PIN: {emp.pin} {emp.gender && `· ${GENDER_LABELS[emp.gender] || emp.gender}`}
+          </p>
         </div>
         <button onClick={() => setEditing(true)} className="btn-secondary py-2 px-4 text-sm">
           แก้ไข
@@ -46,7 +51,13 @@ function EmployeeRow({ emp, leaveTypes, onSave }) {
           <option value="employee">พนักงาน</option>
           <option value="admin">แอดมิน</option>
         </select>
+        <select className="input-field" value={form.gender} onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}>
+          <option value="">ไม่ระบุเพศ</option>
+          <option value="female">หญิง</option>
+          <option value="male">ชาย</option>
+        </select>
       </div>
+      <p className="text-xs text-ink-soft -mt-1">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
 
       <div>
         <p className="text-sm text-ink-soft mb-2">โควตาวันลาต่อปี (เว้นว่าง = ใช้ค่าเริ่มต้น)</p>
@@ -93,7 +104,7 @@ export default function AdminEmployees() {
   const [employees, setEmployees] = useState([])
   const [leaveTypes, setLeaveTypes] = useState([])
   const [showAdd, setShowAdd] = useState(false)
-  const [newEmp, setNewEmp] = useState({ name: '', pin: '', department: '', role: 'employee' })
+  const [newEmp, setNewEmp] = useState({ name: '', pin: '', department: '', role: 'employee', gender: '' })
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -130,7 +141,7 @@ export default function AdminEmployees() {
       balances: {},
       createdAt: serverTimestamp(),
     })
-    setNewEmp({ name: '', pin: '', department: '', role: 'employee' })
+    setNewEmp({ name: '', pin: '', department: '', role: 'employee', gender: '' })
     setShowAdd(false)
   }
 
@@ -153,7 +164,13 @@ export default function AdminEmployees() {
               <option value="employee">พนักงาน</option>
               <option value="admin">แอดมิน</option>
             </select>
+            <select className="input-field" value={newEmp.gender} onChange={(e) => setNewEmp((f) => ({ ...f, gender: e.target.value }))}>
+              <option value="">ไม่ระบุเพศ</option>
+              <option value="female">หญิง</option>
+              <option value="male">ชาย</option>
+            </select>
           </div>
+          <p className="text-xs text-ink-soft">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
           {error && <p className="text-clay text-sm">{error}</p>}
           <button className="btn-primary py-2 px-4 text-sm">บันทึกพนักงานใหม่</button>
         </form>

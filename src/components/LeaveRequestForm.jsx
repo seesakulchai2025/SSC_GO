@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { calcDaysWithDuration, todayISO } from '../utils/dateUtils'
 import { fileToAttachment } from '../utils/attachmentStorage'
+import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -27,6 +28,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
   const days = calcDaysWithDuration(startDate, endDate, isSingleDay ? duration : 'full')
   const remaining = leaveTypeId ? remainingByType?.[leaveTypeId] : undefined
   const overQuota = remaining !== undefined && days > remaining
+  const visibleLeaveTypes = filterVisibleLeaveTypes(employee, leaveTypes)
 
   function handleStartChange(v) {
     setStartDate(v)
@@ -105,7 +107,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
         <label className="text-sm text-ink-soft mb-1 block">ประเภทการลา</label>
         <select value={leaveTypeId} onChange={(e) => setLeaveTypeId(e.target.value)} className="input-field" required>
           <option value="">เลือกประเภทการลา</option>
-          {leaveTypes.map((t) => (
+          {visibleLeaveTypes.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
             </option>

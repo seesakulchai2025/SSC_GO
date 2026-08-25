@@ -6,6 +6,7 @@ import LeaveBalanceCard from '../components/LeaveBalanceCard'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LeaveHistoryList from '../components/LeaveHistoryList'
 import AttachmentUploader from '../components/AttachmentUploader'
+import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { Link } from 'react-router-dom'
 
 export default function EmployeeDashboard() {
@@ -47,6 +48,8 @@ export default function EmployeeDashboard() {
     remainingByType[t.id] = Math.max(quota - (usedByType[t.id] || 0), 0)
   })
 
+  const visibleLeaveTypes = filterVisibleLeaveTypes(employee, leaveTypes)
+
   async function handleCancel(id) {
     if (!confirm('ยืนยันยกเลิกใบลานี้?')) return
     await updateDoc(doc(db, 'leaveRequests', id), { status: 'cancelled' })
@@ -62,7 +65,7 @@ export default function EmployeeDashboard() {
       <div>
         <h2 className="font-display font-semibold text-ink mb-3">โควตาวันลาปีนี้</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {leaveTypes.map((t) => (
+          {visibleLeaveTypes.map((t) => (
             <LeaveBalanceCard key={t.id} leaveType={t} used={usedByType[t.id] || 0} quota={quotaByType[t.id]} />
           ))}
         </div>

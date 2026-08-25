@@ -51,15 +51,22 @@ function PinDots({ value, maxLen = 6 }) {
 }
 
 export default function PinLogin() {
-  const { loginWithPin, needsSetup, createFirstAdmin } = useAuth()
+  const { loginWithPin, needsSetup, createFirstAdmin, registerSelf } = useAuth()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showRegister, setShowRegister] = useState(false)
 
   // first-run setup state
   const [setupName, setSetupName] = useState('')
   const [setupPinCode, setSetupPinCode] = useState('')
   const [setupGateCode, setSetupGateCode] = useState('')
+
+  // self-registration state
+  const [regName, setRegName] = useState('')
+  const [regDepartment, setRegDepartment] = useState('')
+  const [regPin, setRegPin] = useState('')
+  const [regCode, setRegCode] = useState('')
 
   async function handleSubmit() {
     if (pin.length < 4) return
@@ -81,6 +88,19 @@ export default function PinLogin() {
     setError('')
     try {
       await createFirstAdmin({ name: setupName, pin: setupPinCode, setupPin: setupGateCode })
+    } catch (e2) {
+      setError(e2.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRegisterSubmit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await registerSelf({ name: regName, department: regDepartment, pin: regPin, companyCode: regCode })
     } catch (e2) {
       setError(e2.message)
     } finally {
@@ -115,6 +135,49 @@ export default function PinLogin() {
     )
   }
 
+  if (showRegister) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-paper">
+        <div className="card w-full max-w-sm p-8">
+          <p className="font-mono text-xs tracking-widest text-brass-dark uppercase mb-1">พนักงานใหม่</p>
+          <h1 className="font-display text-2xl font-semibold text-ink mb-6">ลงทะเบียนบัญชีของตัวเอง</h1>
+          <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm text-ink-soft mb-1 block">ชื่อ-นามสกุล</label>
+              <input required value={regName} onChange={(e) => setRegName(e.target.value)} className="input-field" placeholder="เช่น สมหญิง ใจดี" />
+            </div>
+            <div>
+              <label className="text-sm text-ink-soft mb-1 block">แผนก (ไม่บังคับ)</label>
+              <input value={regDepartment} onChange={(e) => setRegDepartment(e.target.value)} className="input-field" placeholder="เช่น ฝ่ายขาย" />
+            </div>
+            <div>
+              <label className="text-sm text-ink-soft mb-1 block">ตั้ง PIN สำหรับเข้าระบบ (4-6 หลัก)</label>
+              <input required pattern="[0-9]{4,6}" value={regPin} onChange={(e) => setRegPin(e.target.value.replace(/\D/g, ''))} className="input-field font-mono" placeholder="เช่น 1234" />
+            </div>
+            <div>
+              <label className="text-sm text-ink-soft mb-1 block">รหัสของบริษัท</label>
+              <input required value={regCode} onChange={(e) => setRegCode(e.target.value)} className="input-field font-mono" placeholder="สอบถามจากแอดมิน" />
+            </div>
+            {error && <p className="text-clay text-sm">{error}</p>}
+            <button disabled={busy} className="btn-primary w-full">
+              {busy ? 'กำลังลงทะเบียน...' : 'ลงทะเบียน'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowRegister(false)
+                setError('')
+              }}
+              className="text-sm text-ink-soft underline w-full text-center"
+            >
+              กลับไปหน้าเข้าสู่ระบบ
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-paper">
       <div className="card w-full max-w-xs p-8 text-center">
@@ -129,6 +192,16 @@ export default function PinLogin() {
           className="btn-primary w-full mt-6"
         >
           {busy ? 'กำลังตรวจสอบ...' : 'เข้าสู่ระบบ'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowRegister(true)
+            setError('')
+          }}
+          className="text-sm text-ink-soft underline mt-4"
+        >
+          พนักงานใหม่? ลงทะเบียนที่นี่
         </button>
       </div>
     </div>

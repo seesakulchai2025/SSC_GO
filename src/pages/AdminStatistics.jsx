@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import LeaveBalanceCard from '../components/LeaveBalanceCard'
+import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 
 export default function AdminStatistics() {
   const [employees, setEmployees] = useState([])
@@ -57,7 +58,7 @@ export default function AdminStatistics() {
               {emp.name} <span className="text-ink-soft font-normal text-sm">· {emp.department}</span>
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {leaveTypes.map((t) => {
+              {filterVisibleLeaveTypes(emp, leaveTypes).map((t) => {
                 const quota = emp.balances?.[t.id] ?? t.defaultDays ?? 0
                 const used = usedFor(emp.id, t.id)
                 return <LeaveBalanceCard key={t.id} leaveType={t} used={used} quota={quota} />
