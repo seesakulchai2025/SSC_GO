@@ -19,10 +19,27 @@ function Checkbox({ checked, label }) {
   )
 }
 
+function SignatureBlock({ signatureData, name, role, fallbackName }) {
+  return (
+    <div className="text-center w-56">
+      <div className="h-16 flex items-end justify-center mb-1">
+        {signatureData ? (
+          <img src={signatureData} alt="ลายเซ็น" className="max-h-16 max-w-full object-contain" />
+        ) : (
+          <p className="w-full">ลงชื่อ .............................................</p>
+        )}
+      </div>
+      <p>{name ? `(${name})` : fallbackName ? `(${fallbackName})` : '( ........................................... )'}</p>
+      <p className="text-sm text-ink-soft mt-1">{role}</p>
+    </div>
+  )
+}
+
 export default function PrintLeaveForm() {
   const { id } = useParams()
   const { employee } = useAuth()
   const [request, setRequest] = useState(null)
+  const [reviewerSignature, setReviewerSignature] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -31,9 +48,17 @@ export default function PrintLeaveForm() {
       const snap = await getDoc(doc(db, 'leaveRequests', id))
       if (!snap.exists()) {
         setNotFound(true)
-      } else {
-        setRequest({ id: snap.id, ...snap.data() })
+        setLoading(false)
+        return
       }
+      const data = { id: snap.id, ...snap.data() }
+      setRequest(data)
+
+      if (data.reviewedById) {
+        const reviewerSnap = await getDoc(doc(db, 'employees', data.reviewedById)).catch(() => null)
+        if (reviewerSnap?.exists()) setReviewerSignature(reviewerSnap.data().signature || null)
+      }
+
       setLoading(false)
     }
     load()
@@ -69,6 +94,9 @@ export default function PrintLeaveForm() {
           พิมพ์ / บันทึกเป็น PDF
         </button>
       </div>
+      <p className="max-w-2xl mx-auto px-4 -mt-3 mb-3 no-print text-xs text-ink-soft">
+        หลังพิมพ์แล้ว กรุณาเซ็นชื่อในช่อง "ผู้ขอลา" ด้วยตนเองก่อนส่งเก็บเป็นหลักฐาน — ลายเซ็นฝั่งผู้อนุมัติจะแสดงให้อัตโนมัติแล้ว
+      </p>
 
       <div id="print-sheet" className="max-w-2xl mx-auto bg-white shadow-stamp px-10 py-10 mb-10 text-ink" style={{ fontFamily: "'IBM Plex Sans Thai', sans-serif" }}>
         {/* หัวข้อกระดาษ */}
@@ -106,11 +134,7 @@ export default function PrintLeaveForm() {
         </div>
 
         <div className="flex justify-end mb-2">
-          <div className="text-center w-56">
-            <p className="mb-10">ลงชื่อ .............................................</p>
-            <p>({request.employeeName})</p>
-            <p className="text-sm text-ink-soft mt-1">ผู้ขอลา</p>
-          </div>
+          <SignatureBlock signatureData={null} name={request.employeeName} role="ผู้ขอลา" />
         </div>
 
         {/* เส้นแบ่งส่วนพนักงาน / ฝ่ายบริหาร */}
@@ -135,16 +159,8 @@ export default function PrintLeaveForm() {
         </div>
 
         <div className="flex justify-between mt-10">
-          <div className="text-center w-56">
-            <p className="mb-10">ลงชื่อ .............................................</p>
-            <p>( ........................................... )</p>
-            <p className="text-sm text-ink-soft mt-1">ผู้ตรวจสอบ</p>
-          </div>
-          <div className="text-center w-56">
-            <p className="mb-10">ลงชื่อ .............................................</p>
-            <p>{request.reviewedBy ? `(${request.reviewedBy})` : '( ........................................... )'}</p>
-            <p className="text-sm text-ink-soft mt-1">ผู้อนุมัติ</p>
-          </div>
+          <SignatureBlock signatureData={null} name={null} role="ผู้ตรวจสอบ" />
+          <SignatureBlock signatureData={reviewerSignature} name={request.reviewedBy} role="ผู้อนุมัติ" />
         </div>
       </div>
 

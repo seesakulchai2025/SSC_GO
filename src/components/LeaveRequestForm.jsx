@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { calcDaysWithDuration, todayISO } from '../utils/dateUtils'
 import { fileToAttachment } from '../utils/attachmentStorage'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
+import { useHolidays } from '../context/HolidaysContext'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -14,6 +15,7 @@ const DURATIONS = [
 
 export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmitted }) {
   const { employee } = useAuth()
+  const { holidayDates } = useHolidays()
   const [leaveTypeId, setLeaveTypeId] = useState('')
   const [startDate, setStartDate] = useState(todayISO())
   const [endDate, setEndDate] = useState(todayISO())
@@ -25,7 +27,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
   const [success, setSuccess] = useState(false)
 
   const isSingleDay = startDate === endDate
-  const days = calcDaysWithDuration(startDate, endDate, isSingleDay ? duration : 'full')
+  const days = calcDaysWithDuration(startDate, endDate, isSingleDay ? duration : 'full', holidayDates)
   const remaining = leaveTypeId ? remainingByType?.[leaveTypeId] : undefined
   const overQuota = remaining !== undefined && days > remaining
   const visibleLeaveTypes = filterVisibleLeaveTypes(employee, leaveTypes)
@@ -147,7 +149,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
       )}
 
       <p className={`text-sm font-mono ${overQuota ? 'text-clay font-semibold' : 'text-brass-dark'}`}>
-        รวม {days} วัน{isSingleDay && duration !== 'full' ? '' : 'ทำการ (ไม่รวมเสาร์-อาทิตย์)'}
+        รวม {days} วัน{isSingleDay && duration !== 'full' ? '' : 'ทำการ (ไม่รวมวันอาทิตย์และวันหยุด)'}
         {overQuota && ` — เกินโควตาคงเหลือ (เหลือ ${remaining} วัน)`}
       </p>
 

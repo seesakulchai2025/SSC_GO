@@ -1,5 +1,6 @@
-// นับจำนวนวันลา โดยไม่นับเสาร์-อาทิตย์ (วันทำงานจริง)
-export function calcLeaveDays(startStr, endStr) {
+// นับจำนวนวันลา — วันทำการของร้านคือ จันทร์-เสาร์ หยุดเฉพาะวันอาทิตย์
+// holidaySet (Set ของ 'YYYY-MM-DD') คือวันหยุดราชการ/นักขัตฤกษ์ที่เปิดใช้งานอยู่ ณ ตอนนั้น
+export function calcLeaveDays(startStr, endStr, holidaySet = new Set()) {
   if (!startStr || !endStr) return 0
   const start = new Date(startStr)
   const end = new Date(endStr)
@@ -8,7 +9,8 @@ export function calcLeaveDays(startStr, endStr) {
   const cur = new Date(start)
   while (cur <= end) {
     const day = cur.getDay()
-    if (day !== 0 && day !== 6) count++
+    const dateStr = cur.toISOString().slice(0, 10)
+    if (day !== 0 && !holidaySet.has(dateStr)) count++
     cur.setDate(cur.getDate() + 1)
   }
   return count
@@ -16,11 +18,11 @@ export function calcLeaveDays(startStr, endStr) {
 
 // รองรับการลาครึ่งวัน — ใช้ได้เฉพาะกรณีลาวันเดียว (start === end)
 // duration: 'full' | 'half_morning' | 'half_afternoon'
-export function calcDaysWithDuration(startStr, endStr, duration = 'full') {
+export function calcDaysWithDuration(startStr, endStr, duration = 'full', holidaySet = new Set()) {
   if (startStr === endStr && duration !== 'full') {
     return 0.5
   }
-  return calcLeaveDays(startStr, endStr)
+  return calcLeaveDays(startStr, endStr, holidaySet)
 }
 
 export const DURATION_LABELS = {
@@ -42,15 +44,16 @@ export function formatThaiDateLong(dateStr) {
   return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// แปลงช่วงวันที่เป็นรายการ "วันทำการ" แต่ละวัน (ไม่รวมเสาร์-อาทิตย์) — ใช้ทำปฏิทินทีม
-export function expandBusinessDays(startStr, endStr) {
+// แปลงช่วงวันที่เป็นรายการ "วันทำการ" แต่ละวัน (จ-ส ไม่รวมวันอาทิตย์และวันหยุดที่เปิดใช้งาน) — ใช้ทำปฏิทินทีม
+export function expandBusinessDays(startStr, endStr, holidaySet = new Set()) {
   const dates = []
   const start = new Date(startStr)
   const end = new Date(endStr)
   const cur = new Date(start)
   while (cur <= end) {
     const day = cur.getDay()
-    if (day !== 0 && day !== 6) dates.push(cur.toISOString().slice(0, 10))
+    const dateStr = cur.toISOString().slice(0, 10)
+    if (day !== 0 && !holidaySet.has(dateStr)) dates.push(dateStr)
     cur.setDate(cur.getDate() + 1)
   }
   return dates
@@ -66,6 +69,7 @@ export function thaiMonthYearLabel(year, monthIndex) {
 }
 
 // สร้างตารางปฏิทินรายเดือน คืนค่าเป็นอาร์เรย์ของสัปดาห์ (แต่ละสัปดาห์มี 7 ช่อง อา-ส)
+// isWeekend หมายถึงวันอาทิตย์เท่านั้น (ร้านหยุดเฉพาะวันอาทิตย์)
 export function getMonthGrid(year, monthIndex) {
   const firstOfMonth = new Date(year, monthIndex, 1)
   const startDay = firstOfMonth.getDay()
@@ -75,7 +79,7 @@ export function getMonthGrid(year, monthIndex) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, monthIndex, d)
     const dow = dt.getDay()
-    cells.push({ dateStr: dt.toISOString().slice(0, 10), dayNum: d, isWeekend: dow === 0 || dow === 6 })
+    cells.push({ dateStr: dt.toISOString().slice(0, 10), dayNum: d, isWeekend: dow === 0 })
   }
   while (cells.length % 7 !== 0) cells.push(null)
   const weeks = []

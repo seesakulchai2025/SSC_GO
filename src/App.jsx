@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { HolidaysProvider } from './context/HolidaysContext'
 import PinLogin from './components/PinLogin'
 import Navbar from './components/Navbar'
 import EmployeeDashboard from './pages/EmployeeDashboard'
@@ -7,6 +8,9 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminEmployees from './pages/AdminEmployees'
 import AdminLeaveTypes from './pages/AdminLeaveTypes'
 import AdminStatistics from './pages/AdminStatistics'
+import AdminAddLeave from './pages/AdminAddLeave'
+import AdminHolidays from './pages/AdminHolidays'
+import AdminReports from './pages/AdminReports'
 import TeamCalendar from './pages/TeamCalendar'
 import PrintLeaveForm from './pages/PrintLeaveForm'
 
@@ -46,6 +50,14 @@ function Shell() {
           }
         />
         <Route
+          path="/admin/add-leave"
+          element={
+            <RequireAdmin>
+              <AdminAddLeave />
+            </RequireAdmin>
+          }
+        />
+        <Route
           path="/admin/employees"
           element={
             <RequireAdmin>
@@ -58,6 +70,22 @@ function Shell() {
           element={
             <RequireAdmin>
               <AdminLeaveTypes />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/holidays"
+          element={
+            <RequireAdmin>
+              <AdminHolidays />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/reports"
+          element={
+            <RequireAdmin>
+              <AdminReports />
             </RequireAdmin>
           }
         />
@@ -79,7 +107,9 @@ function Shell() {
 export default function App() {
   return (
     <AuthProvider>
-      <Shell />
+      <HolidaysProvider>
+        <Shell />
+      </HolidaysProvider>
     </AuthProvider>
   )
 }

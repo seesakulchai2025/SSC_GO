@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { getMonthGrid, thaiMonthYearLabel, expandBusinessDays, formatThaiDate, DURATION_LABELS, todayISO } from '../utils/dateUtils'
+import { useHolidays } from '../context/HolidaysContext'
 
 const WEEKDAY_LABELS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
 export default function TeamCalendar() {
+  const { holidays, holidayDates } = useHolidays()
   const [requests, setRequests] = useState([])
   const [cursor, setCursor] = useState(() => {
     const d = new Date()
@@ -23,17 +25,26 @@ export default function TeamCalendar() {
   const byDate = useMemo(() => {
     const map = {}
     requests.forEach((r) => {
-      expandBusinessDays(r.startDate, r.endDate).forEach((dateStr) => {
+      expandBusinessDays(r.startDate, r.endDate, holidayDates).forEach((dateStr) => {
         if (!map[dateStr]) map[dateStr] = []
         map[dateStr].push(r)
       })
     })
     return map
-  }, [requests])
+  }, [requests, holidayDates])
+
+  const holidayNameByDate = useMemo(() => {
+    const map = {}
+    holidays.forEach((h) => {
+      if (h.enabled !== false) map[h.date] = h.name
+    })
+    return map
+  }, [holidays])
 
   const weeks = getMonthGrid(cursor.year, cursor.month)
   const todayStr = todayISO()
   const selectedList = selectedDate ? byDate[selectedDate] || [] : []
+  const selectedHolidayName = selectedDate ? holidayNameByDate[selectedDate] : null
 
   function prevMonth() {
     setSelectedDate(null)
@@ -48,7 +59,7 @@ export default function TeamCalendar() {
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
       <div>
         <h1 className="font-display text-2xl font-semibold text-ink">ปฏิทินวันลาทีม</h1>
-        <p className="text-sm text-ink-soft mt-1">แสดงเฉพาะใบลาที่อนุมัติแล้ว — แตะวันที่มีจุดเพื่อดูรายละเอียด</p>
+        <p className="text-sm text-ink-soft mt-1">แสดงเฉพาะใบลาที่อนุมัติแล้ว — แตะวันที่มีจุดหรือวันหยุดเพื่อดูรายละเอียด</p>
       </div>
 
       <div className="card p-4">
@@ -72,20 +83,25 @@ export default function TeamCalendar() {
           {weeks.flat().map((cell, i) => {
             if (!cell) return <div key={`blank-${i}`} />
             const items = byDate[cell.dateStr] || []
+            const holidayName = holidayNameByDate[cell.dateStr]
             const isToday = cell.dateStr === todayStr
             const isSelected = cell.dateStr === selectedDate
+            const canOpen = items.length > 0 || !!holidayName
             return (
               <button
                 key={cell.dateStr}
                 type="button"
-                onClick={() => items.length > 0 && setSelectedDate(cell.dateStr)}
+                onClick={() => canOpen && setSelectedDate(cell.dateStr)}
+                title={holidayName}
                 className={`aspect-square rounded-md p-1 text-left border transition-colors ${
                   isSelected ? 'border-brass bg-brass/10' : isToday ? 'border-brass' : 'border-ink/10'
-                } ${cell.isWeekend ? 'bg-paperDark/60' : 'bg-white'} ${
-                  items.length > 0 ? 'hover:border-brass cursor-pointer' : 'cursor-default'
+                } ${holidayName ? 'bg-clay-light' : cell.isWeekend ? 'bg-paperDark/60' : 'bg-white'} ${
+                  canOpen ? 'hover:border-brass cursor-pointer' : 'cursor-default'
                 }`}
               >
-                <span className={`text-xs font-mono ${isToday ? 'text-brass-dark font-bold' : 'text-ink-soft'}`}>{cell.dayNum}</span>
+                <span className={`text-xs font-mono ${isToday ? 'text-brass-dark font-bold' : holidayName ? 'text-clay font-semibold' : 'text-ink-soft'}`}>
+                  {cell.dayNum}
+                </span>
                 {items.length > 0 && (
                   <div className="mt-0.5 flex flex-wrap gap-0.5">
                     {items.slice(0, 4).map((r) => (
@@ -98,13 +114,25 @@ export default function TeamCalendar() {
             )
           })}
         </div>
+
+        <div className="flex items-center gap-4 mt-4 text-xs text-ink-soft">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm bg-paperDark/60 border border-ink/10 inline-block" /> วันอาทิตย์
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm bg-clay-light border border-ink/10 inline-block" /> วันหยุดที่เปิดใช้งาน
+          </span>
+        </div>
       </div>
 
       {selectedDate && (
         <div className="fixed inset-0 z-30 bg-ink/40 flex items-center justify-center px-4 no-print" onClick={() => setSelectedDate(null)}>
           <div onClick={(e) => e.stopPropagation()} className="card w-full max-w-md p-5 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <p className="font-display font-semibold text-ink text-lg">{formatThaiDate(selectedDate)}</p>
+              <div>
+                <p className="font-display font-semibold text-ink text-lg">{formatThaiDate(selectedDate)}</p>
+                {selectedHolidayName && <p className="text-sm text-clay font-semibold mt-0.5">🎌 {selectedHolidayName}</p>}
+              </div>
               <button onClick={() => setSelectedDate(null)} className="text-ink-soft text-xl leading-none">
                 ×
               </button>

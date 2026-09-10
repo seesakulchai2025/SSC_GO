@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcDaysWithDuration } from '../utils/dateUtils'
+import { useHolidays } from '../context/HolidaysContext'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -10,6 +11,7 @@ const DURATIONS = [
 ]
 
 export default function EditRequestModal({ request, leaveTypes, onClose }) {
+  const { holidayDates } = useHolidays()
   const [leaveTypeId, setLeaveTypeId] = useState(request.leaveTypeId)
   const [startDate, setStartDate] = useState(request.startDate)
   const [endDate, setEndDate] = useState(request.endDate)
@@ -18,8 +20,9 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+
   const isSingleDay = startDate === endDate
-  const days = calcDaysWithDuration(startDate, endDate, isSingleDay ? duration : 'full')
+  const days = calcDaysWithDuration(startDate, endDate, isSingleDay ? duration : 'full', holidayDates)
 
   async function handleSave(e) {
     e.preventDefault()

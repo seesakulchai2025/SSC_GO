@@ -53,6 +53,7 @@ export default function AdminDashboard() {
     await updateDoc(doc(db, 'leaveRequests', id), {
       status,
       reviewedBy: employee.name,
+      reviewedById: employee.id,
       reviewedAt: serverTimestamp(),
       reviewNote: note,
     })

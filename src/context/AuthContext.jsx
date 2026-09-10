@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db, ensureAnonymousSession, FIXED_LEAVE_TYPES } from '../firebase'
 
 const AuthContext = createContext(null)
@@ -111,9 +111,27 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
+  // พนักงานแก้ไขข้อมูล, PIN, และลายเซ็นของตัวเอง
+  const updateOwnProfile = useCallback(
+    async ({ name, department, pin, signature }) => {
+      if (pin !== employee.pin) {
+        const dup = await getDocs(query(collection(db, 'employees'), where('pin', '==', pin)))
+        if (dup.docs.some((d) => d.id !== employee.id)) {
+          throw new Error('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
+        }
+      }
+      const patch = { name: name.trim(), department: department || '', pin, signature: signature || null }
+      await updateDoc(doc(db, 'employees', employee.id), patch)
+      const updated = { ...employee, ...patch }
+      setEmployee(updated)
+      return updated
+    },
+    [employee]
+  )
+
   return (
     <AuthContext.Provider
-      value={{ employee, loading, needsSetup, loginWithPin, logout, createFirstAdmin, registerSelf, setNeedsSetup }}
+      value={{ employee, loading, needsSetup, loginWithPin, logout, createFirstAdmin, registerSelf, updateOwnProfile, setNeedsSetup }}
     >
       {children}
     </AuthContext.Provider>

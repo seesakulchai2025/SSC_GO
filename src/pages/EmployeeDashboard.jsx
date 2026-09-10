@@ -6,6 +6,7 @@ import LeaveBalanceCard from '../components/LeaveBalanceCard'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LeaveHistoryList from '../components/LeaveHistoryList'
 import AttachmentUploader from '../components/AttachmentUploader'
+import TodayLeaveCard from '../components/TodayLeaveCard'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { Link } from 'react-router-dom'
 
@@ -45,7 +46,7 @@ export default function EmployeeDashboard() {
   leaveTypes.forEach((t) => {
     const quota = employee.balances?.[t.id] ?? t.defaultDays ?? 0
     quotaByType[t.id] = quota
-    remainingByType[t.id] = Math.max(quota - (usedByType[t.id] || 0), 0)
+    remainingByType[t.id] = quota - (usedByType[t.id] || 0)
   })
 
   const visibleLeaveTypes = filterVisibleLeaveTypes(employee, leaveTypes)
@@ -61,6 +62,8 @@ export default function EmployeeDashboard() {
         <h1 className="font-display text-2xl font-semibold text-ink">สวัสดี, {employee.name}</h1>
         <p className="text-ink-soft text-sm">{employee.department}</p>
       </div>
+
+      <TodayLeaveCard />
 
       <div>
         <h2 className="font-display font-semibold text-ink mb-3">โควตาวันลาปีนี้</h2>
