@@ -3,10 +3,15 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { getMonthGrid, thaiMonthYearLabel, expandBusinessDays, formatThaiDate, DURATION_LABELS, todayISO } from '../utils/dateUtils'
 import { useHolidays } from '../context/HolidaysContext'
+import { useAuth } from '../context/AuthContext'
+import AdminLeaveTypes from './AdminLeaveTypes'
+import AdminHolidays from './AdminHolidays'
 
 const WEEKDAY_LABELS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
 export default function TeamCalendar() {
+  const { employee } = useAuth()
+  const isAdmin = employee?.role === 'admin'
   const { holidays, holidayDates } = useHolidays()
   const [requests, setRequests] = useState([])
   const [cursor, setCursor] = useState(() => {
@@ -14,6 +19,7 @@ export default function TeamCalendar() {
     return { year: d.getFullYear(), month: d.getMonth() }
   })
   const [selectedDate, setSelectedDate] = useState(null)
+  const [calendarTool, setCalendarTool] = useState(null)
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'leaveRequests'), (snap) => {
@@ -57,9 +63,17 @@ export default function TeamCalendar() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">ปฏิทินวันลาทีม</h1>
-        <p className="text-sm text-ink-soft mt-1">แสดงเฉพาะใบลาที่อนุมัติแล้ว — แตะวันที่มีจุดหรือวันหยุดเพื่อดูรายละเอียด</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-ink">ปฏิทินวันลาทีม</h1>
+          <p className="text-sm text-ink-soft mt-1">แสดงเฉพาะใบลาที่อนุมัติแล้ว — แตะวันที่มีจุดหรือวันหยุดเพื่อดูรายละเอียด</p>
+        </div>
+        {isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setCalendarTool('leaveTypes')} className="btn-secondary py-2 px-3 text-sm">ประเภทลา</button>
+            <button type="button" onClick={() => setCalendarTool('holidays')} className="btn-secondary py-2 px-3 text-sm">วันหยุด</button>
+          </div>
+        )}
       </div>
 
       <div className="card p-4">
@@ -153,6 +167,18 @@ export default function TeamCalendar() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {calendarTool && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/50 px-3 py-4 sm:px-6 no-print" onClick={() => setCalendarTool(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="calendar-tool-title" onClick={(event) => event.stopPropagation()} className="card relative max-h-[92vh] w-full max-w-4xl overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+              <h2 id="calendar-tool-title" className="font-display text-lg font-semibold text-ink">{calendarTool === 'leaveTypes' ? 'จัดการประเภทลา' : 'จัดการวันหยุด'}</h2>
+              <button type="button" onClick={() => setCalendarTool(null)} aria-label="ปิดหน้าต่าง" className="px-2 text-2xl leading-none text-ink-soft">×</button>
+            </div>
+            {calendarTool === 'leaveTypes' ? <AdminLeaveTypes /> : <AdminHolidays />}
+          </section>
         </div>
       )}
     </div>

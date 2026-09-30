@@ -9,26 +9,31 @@ export function AuthProvider({ children }) {
   const [employee, setEmployee] = useState(null)
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
+  const [initError, setInitError] = useState('')
 
   useEffect(() => {
     async function init() {
-      await ensureAnonymousSession()
-      const snap = await getDocs(collection(db, 'employees'))
-      if (snap.empty) {
-        setNeedsSetup(true)
-        setLoading(false)
-        return
-      }
-      const savedId = localStorage.getItem(STORAGE_KEY)
-      if (savedId) {
-        const found = snap.docs.find((d) => d.id === savedId)
-        if (found && found.data().active !== false) {
-          setEmployee({ id: found.id, ...found.data() })
-        } else {
-          localStorage.removeItem(STORAGE_KEY)
+      try {
+        await ensureAnonymousSession()
+        const snap = await getDocs(collection(db, 'employees'))
+        if (snap.empty) {
+          setNeedsSetup(true)
+          return
         }
+        const savedId = localStorage.getItem(STORAGE_KEY)
+        if (savedId) {
+          const found = snap.docs.find((d) => d.id === savedId)
+          if (found && found.data().active !== false) {
+            setEmployee({ id: found.id, ...found.data() })
+          } else {
+            localStorage.removeItem(STORAGE_KEY)
+          }
+        }
+      } catch (error) {
+        setInitError(error.message || 'ไม่สามารถเชื่อมต่อ Firebase ได้')
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
     init()
   }, [])
@@ -131,7 +136,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ employee, loading, needsSetup, loginWithPin, logout, createFirstAdmin, registerSelf, updateOwnProfile, setNeedsSetup }}
+      value={{ employee, loading, needsSetup, initError, loginWithPin, logout, createFirstAdmin, registerSelf, updateOwnProfile, setNeedsSetup }}
     >
       {children}
     </AuthContext.Provider>

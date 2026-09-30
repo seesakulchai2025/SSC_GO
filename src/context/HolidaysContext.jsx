@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { collection, onSnapshot, doc, getDoc, getDocs, setDoc, addDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from './AuthContext'
-import { fetchThaiPublicHolidays } from '../utils/holidaySync'
+import { buildCompensatoryHolidays, fetchThaiPublicHolidays } from '../utils/holidaySync'
 
 const HolidaysContext = createContext(null)
 
@@ -31,21 +31,40 @@ export function HolidaysProvider({ children }) {
         const metaSnap = await getDoc(metaRef)
         const syncedYears = metaSnap.exists() ? metaSnap.data().syncedYears || [] : []
         const thisYear = new Date().getFullYear()
-        const yearsToSync = [thisYear, thisYear + 1].filter((y) => !syncedYears.includes(y))
-        if (yearsToSync.length === 0) return
+        const yearsToPrepare = [thisYear, thisYear + 1]
+        const yearsToSync = yearsToPrepare.filter((y) => !syncedYears.includes(y))
 
         const existingSnap = await getDocs(collection(db, 'holidays'))
-        const existingDates = new Set(existingSnap.docs.map((d) => d.data().date))
+        const existingHolidays = existingSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const existingDates = new Set(existingHolidays.map((h) => h.date))
 
-        for (const year of yearsToSync) {
-          const fetched = await fetchThaiPublicHolidays(year)
+        for (const year of yearsToPrepare) {
+          let fetched = []
+          if (yearsToSync.includes(year)) {
+            try {
+              fetched = await fetchThaiPublicHolidays(year)
+            } catch (err) {
+              console.warn(`Holiday sync failed for ${year}`, err)
+            }
+          }
           for (const h of fetched) {
             if (existingDates.has(h.date)) continue
-            await addDoc(collection(db, 'holidays'), { date: h.date, name: h.name, enabled: true, source: 'auto', year })
+            const holiday = { date: h.date, name: h.name, enabled: true, source: 'auto', year }
+            await addDoc(collection(db, 'holidays'), holiday)
+            existingHolidays.push(holiday)
             existingDates.add(h.date)
           }
+          const compensatory = buildCompensatoryHolidays([...existingHolidays, ...fetched.map((h) => ({ ...h, source: 'auto' }))], year)
+          for (const holiday of compensatory) {
+            if (existingDates.has(holiday.date)) continue
+            await addDoc(collection(db, 'holidays'), holiday)
+            existingHolidays.push(holiday)
+            existingDates.add(holiday.date)
+          }
         }
-        await setDoc(metaRef, { syncedYears: [...syncedYears, ...yearsToSync] }, { merge: true })
+        if (yearsToSync.length > 0) {
+          await setDoc(metaRef, { syncedYears: [...syncedYears, ...yearsToSync] }, { merge: true })
+        }
       } catch (err) {
         // ดึงข้อมูลไม่สำเร็จก็ไม่เป็นไร — แอดมินยังเพิ่ม/แก้ไขวันหยุดเองที่หน้า "วันหยุด" ได้ตามปกติ
         console.warn('Holiday auto-sync failed', err)

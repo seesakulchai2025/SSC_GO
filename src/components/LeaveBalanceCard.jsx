@@ -10,7 +10,7 @@ export default function LeaveBalanceCard({ leaveType, used, quota }) {
         <p className={`text-3xl font-mono font-semibold ${over ? 'text-clay' : 'text-ink'}`}>
           {remaining}
           <span className={`text-sm font-sans font-normal ml-1 ${over ? 'text-clay' : 'text-ink-soft'}`}>
-            {over ? 'วันเกินโควตา' : 'วันคงเหลือ'}
+            {over ? 'วันใช้เกิน' : 'วันคงเหลือ'}
           </span>
         </p>
       </div>

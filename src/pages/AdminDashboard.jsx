@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import LeaveHistoryList from '../components/LeaveHistoryList'
 import EditRequestModal from '../components/EditRequestModal'
+import LeaveEditHistoryModal from '../components/LeaveEditHistoryModal'
 import { Link } from 'react-router-dom'
 
 const STATUS_OPTIONS = [
@@ -21,6 +22,7 @@ export default function AdminDashboard() {
   const [noteDrafts, setNoteDrafts] = useState({})
   const [rowError, setRowError] = useState({})
   const [editingRequest, setEditingRequest] = useState(null)
+  const [showEditHistory, setShowEditHistory] = useState(false)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('pending')
@@ -73,6 +75,14 @@ export default function AdminDashboard() {
     setStatusFilter('pending')
   }
 
+  function showAllRequests() {
+    setSearch('')
+    setTypeFilter('')
+    setDateFrom('')
+    setDateTo('')
+    setStatusFilter('all')
+  }
+
   const pendingCount = requests.filter((r) => r.status === 'pending').length
   const hasActiveFilters = search || typeFilter || dateFrom || dateTo || statusFilter !== 'pending'
 
@@ -91,7 +101,13 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <h1 className="font-display text-2xl font-semibold text-ink">อนุมัติวันลา</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-semibold text-ink">อนุมัติวันลา</h1>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={showAllRequests} className="btn-secondary py-2 px-3 text-sm">ดูใบลาทั้งหมด / แก้ย้อนหลัง</button>
+          <button type="button" onClick={() => setShowEditHistory(true)} className="btn-secondary py-2 px-3 text-sm">ประวัติการแก้ไข</button>
+        </div>
+      </div>
 
       <div className="card p-4 space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -173,6 +189,7 @@ export default function AdminDashboard() {
       {editingRequest && (
         <EditRequestModal request={editingRequest} leaveTypes={leaveTypes} onClose={() => setEditingRequest(null)} />
       )}
+      {showEditHistory && <LeaveEditHistoryModal onClose={() => setShowEditHistory(false)} />}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuth } from '../context/AuthContext'
 import { calcDaysWithDuration } from '../utils/dateUtils'
 import { useHolidays } from '../context/HolidaysContext'
 
@@ -12,6 +13,7 @@ const DURATIONS = [
 
 export default function EditRequestModal({ request, leaveTypes, onClose }) {
   const { holidayDates } = useHolidays()
+  const { employee } = useAuth()
   const [leaveTypeId, setLeaveTypeId] = useState(request.leaveTypeId)
   const [startDate, setStartDate] = useState(request.startDate)
   const [endDate, setEndDate] = useState(request.endDate)
@@ -34,7 +36,7 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
     setBusy(true)
     try {
       const leaveType = leaveTypes.find((t) => t.id === leaveTypeId)
-      await updateDoc(doc(db, 'leaveRequests', request.id), {
+      const nextValues = {
         leaveTypeId,
         leaveTypeName: leaveType?.name || request.leaveTypeName,
         startDate,
@@ -42,7 +44,39 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
         duration: isSingleDay ? duration : 'full',
         days,
         reason,
+      }
+      const previousValues = {
+        leaveTypeId: request.leaveTypeId,
+        leaveTypeName: request.leaveTypeName,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        duration: request.duration || 'full',
+        days: request.days,
+        reason: request.reason || '',
+      }
+      const hasChanges = Object.keys(nextValues).some((key) => nextValues[key] !== previousValues[key])
+      if (!hasChanges) {
+        onClose()
+        return
+      }
+
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'leaveRequests', request.id), nextValues)
+      const auditRef = doc(collection(db, 'leaveEditAuditLogs'))
+      batch.set(auditRef, {
+        requestId: request.id,
+        employeeId: request.employeeId || '',
+        employeeName: request.employeeName || '',
+        department: request.department || '',
+        leaveDate: startDate,
+        changedById: employee.id,
+        changedByName: employee.name,
+        changedAt: serverTimestamp(),
+        changedAtClient: new Date().toISOString(),
+        previous: previousValues,
+        next: nextValues,
       })
+      await batch.commit()
       onClose()
     } catch (err) {
       setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')

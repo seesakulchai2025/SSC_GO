@@ -5,25 +5,16 @@ import { useLeaveNotifications } from '../hooks/useLeaveNotifications'
 import { useAdminPendingCount } from '../hooks/useAdminPendingCount'
 import ProfileModal from './ProfileModal'
 
-const NAV_ITEMS = [
-  { to: '/', end: true, label: 'หน้าหลัก', badge: 'unseen' },
-  { to: '/calendar', end: false, label: 'ปฏิทิน' },
-]
-
 const ADMIN_NAV_ITEMS = [
-  { to: '/admin', end: false, label: 'อนุมัติ', badge: 'pending' },
+  { to: '/admin', end: true, label: 'อนุมัติ', badge: 'pending' },
   { to: '/admin/add-leave', end: false, label: 'ลงวันลาให้พนักงาน' },
   { to: '/admin/employees', end: false, label: 'พนักงาน' },
-  { to: '/admin/leave-types', end: false, label: 'ประเภทลา' },
-  { to: '/admin/holidays', end: false, label: 'วันหยุด' },
-  { to: '/admin/statistics', end: false, label: 'สถิติ' },
-  { to: '/admin/reports', end: false, label: 'รายงาน' },
 ]
 
 function Badge({ count }) {
   if (!count) return null
   return (
-    <span className="absolute -top-1.5 -right-2.5 w-4 h-4 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center leading-none">
+    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-[10px] font-bold leading-5 text-white">
       {count > 9 ? '9+' : count}
     </span>
   )
@@ -36,123 +27,101 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const { unseenCount, markAllSeen } = useLeaveNotifications(employee?.id)
   const pendingCount = useAdminPendingCount(isAdmin)
-
   const badgeFor = (badge) => (badge === 'unseen' ? unseenCount : badge === 'pending' ? pendingCount : 0)
-
-  const desktopLinkCls = ({ isActive }) =>
-    `px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-      isActive ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5'
+  const linkClass = ({ isActive }) =>
+    `flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+      isActive ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5 hover:text-ink'
     }`
-
-  const mobileLinkCls = ({ isActive }) =>
-    `block px-3 py-2.5 text-sm font-semibold rounded-lg transition-colors ${
-      isActive ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5'
-    }`
-
-  function handleHomeClick() {
-    markAllSeen()
+  function handleNavigation(to) {
+    if (to === '/') markAllSeen()
     setMenuOpen(false)
   }
 
-  const allItems = [...NAV_ITEMS, ...(isAdmin ? ADMIN_NAV_ITEMS : [])]
+  function Navigation() {
+    return (
+      <>
+        <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase text-ink-soft/70">การใช้งาน</p>
+        <NavLink to="/" end className={linkClass} onClick={() => handleNavigation('/')}>
+          <span>ลงเวลาเข้างาน</span>
+          <Badge count={badgeFor('unseen')} />
+        </NavLink>
+
+        {isAdmin && (
+          <>
+            <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase text-ink-soft/70">จัดการระบบ</p>
+            {ADMIN_NAV_ITEMS.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} className={linkClass} onClick={() => handleNavigation(item.to)}>
+                <span>{item.label}</span>
+                <Badge count={badgeFor(item.badge)} />
+              </NavLink>
+            ))}
+            <NavLink to="/calendar" end className={linkClass} onClick={() => handleNavigation('/calendar')}>ปฏิทิน</NavLink>
+            <NavLink to="/admin/reports" className={linkClass} onClick={() => handleNavigation('/admin/reports')}>รายงาน</NavLink>
+          </>
+        )}
+      </>
+    )
+  }
+
+  function AccountActions({ mobile = false }) {
+    return (
+      <div className={`border-ink/10 ${mobile ? 'border-t p-3' : 'border-t p-4'}`}>
+        <button onClick={() => setShowProfile(true)} className="mb-2 block w-full truncate text-left text-sm font-semibold text-ink hover:underline">
+          {employee?.name || 'บัญชีของฉัน'}
+        </button>
+        {employee?.department && <p className="mb-3 truncate text-xs text-ink-soft">{employee.department}</p>}
+        <button onClick={logout} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-clay hover:bg-clay-light">
+          ออกจากระบบ
+        </button>
+      </div>
+    )
+  }
 
   return (
     <>
-      <header className="no-print sticky top-0 z-20 bg-paper/95 backdrop-blur border-b border-ink/10">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => setMenuOpen(true)}
-              className="sm:hidden -ml-1.5 p-1.5 text-ink shrink-0"
-              aria-label="เปิดเมนู"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-            <span className="font-display font-semibold text-ink text-lg shrink-0">ใบลา</span>
-            <button onClick={() => setShowProfile(true)} className="text-ink-soft text-sm truncate hidden sm:inline underline decoration-dotted">
-              · {employee?.name}
-            </button>
-          </div>
-
-          {/* เมนูแนวนอนสำหรับหน้าจอกว้าง (แท็บเล็ต/คอมพิวเตอร์) */}
-          <nav className="hidden sm:flex items-center gap-1 flex-wrap justify-end">
-            {NAV_ITEMS.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end} className={desktopLinkCls} onClick={item.to === '/' ? markAllSeen : undefined}>
-                <span className="relative inline-block">
-                  {item.label}
-                  <Badge count={badgeFor(item.badge)} />
-                </span>
-              </NavLink>
-            ))}
-            {isAdmin &&
-              ADMIN_NAV_ITEMS.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.end} className={desktopLinkCls}>
-                  <span className="relative inline-block">
-                    {item.label}
-                    <Badge count={badgeFor(item.badge)} />
-                  </span>
-                </NavLink>
-              ))}
-            <button onClick={logout} className="px-3 py-2 text-sm font-semibold rounded-lg text-clay hover:bg-clay-light transition-colors">
-              ออกจากระบบ
-            </button>
-          </nav>
+      <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-ink/10 bg-paper lg:flex">
+        <div className="border-b border-ink/10 px-5 py-5">
+          <p className="font-display text-xl font-semibold text-ink">ใบลา</p>
+          <p className="mt-1 text-xs text-ink-soft">ระบบงานพนักงาน</p>
         </div>
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          <Navigation />
+        </nav>
+        <AccountActions />
+      </aside>
+
+      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <button onClick={() => setMenuOpen(true)} className="shrink-0 p-1 text-ink" aria-label="เปิดเมนู">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <span className="truncate font-display font-semibold text-ink">ใบลา</span>
+        </div>
+        <button onClick={() => setShowProfile(true)} className="max-w-[45%] truncate text-sm text-ink-soft underline decoration-dotted">
+          {employee?.name}
+        </button>
       </header>
 
-      {/* Sidebar แบบเลื่อนออกจากซ้าย สำหรับหน้าจอมือถือ */}
       {menuOpen && (
-        <div className="fixed inset-0 z-40 sm:hidden no-print" onClick={() => setMenuOpen(false)}>
+        <div className="no-print fixed inset-0 z-50 lg:hidden" onClick={() => setMenuOpen(false)}>
           <div className="absolute inset-0 bg-ink/40" />
-          <div onClick={(e) => e.stopPropagation()} className="absolute left-0 top-0 bottom-0 w-72 max-w-[82%] bg-paper shadow-stamp flex flex-col">
-            <div className="p-4 border-b border-ink/10 flex items-center justify-between shrink-0">
-              <div className="min-w-0">
-                <p className="font-display font-semibold text-ink text-lg">ใบลา</p>
-                <button
-                  onClick={() => {
-                    setShowProfile(true)
-                    setMenuOpen(false)
-                  }}
-                  className="text-ink-soft text-sm truncate underline decoration-dotted"
-                >
-                  {employee?.name}
-                </button>
+          <aside onClick={(event) => event.stopPropagation()} className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-paper shadow-stamp">
+            <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+              <div>
+                <p className="font-display text-lg font-semibold text-ink">ใบลา</p>
+                <p className="mt-1 max-w-52 truncate text-xs text-ink-soft">{employee?.name}</p>
               </div>
-              <button onClick={() => setMenuOpen(false)} className="text-ink-soft text-2xl leading-none shrink-0 pl-3">
-                ×
-              </button>
+              <button onClick={() => setMenuOpen(false)} className="p-2 text-xl leading-none text-ink-soft" aria-label="ปิดเมนู">×</button>
             </div>
-
-            <nav className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
-              {allItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={mobileLinkCls}
-                  onClick={item.to === '/' ? handleHomeClick : () => setMenuOpen(false)}
-                >
-                  <span className="relative inline-block">
-                    {item.label}
-                    <Badge count={badgeFor(item.badge)} />
-                  </span>
-                </NavLink>
-              ))}
+            <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+              <Navigation />
             </nav>
-
-            <div className="p-2 border-t border-ink/10 shrink-0">
-              <button
-                onClick={logout}
-                className="w-full text-left px-3 py-2.5 text-sm font-semibold rounded-lg text-clay hover:bg-clay-light transition-colors"
-              >
-                ออกจากระบบ
-              </button>
-            </div>
-          </div>
+            <AccountActions mobile />
+          </aside>
         </div>
       )}
 

@@ -1,15 +1,27 @@
 // นับจำนวนวันลา — วันทำการของร้านคือ จันทร์-เสาร์ หยุดเฉพาะวันอาทิตย์
 // holidaySet (Set ของ 'YYYY-MM-DD') คือวันหยุดราชการ/นักขัตฤกษ์ที่เปิดใช้งานอยู่ ณ ตอนนั้น
+export function parseISODate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export function toISODate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function calcLeaveDays(startStr, endStr, holidaySet = new Set()) {
   if (!startStr || !endStr) return 0
-  const start = new Date(startStr)
-  const end = new Date(endStr)
+  const start = parseISODate(startStr)
+  const end = parseISODate(endStr)
   if (end < start) return 0
   let count = 0
   const cur = new Date(start)
   while (cur <= end) {
     const day = cur.getDay()
-    const dateStr = cur.toISOString().slice(0, 10)
+    const dateStr = toISODate(cur)
     if (day !== 0 && !holidaySet.has(dateStr)) count++
     cur.setDate(cur.getDate() + 1)
   }
@@ -20,7 +32,7 @@ export function calcLeaveDays(startStr, endStr, holidaySet = new Set()) {
 // duration: 'full' | 'half_morning' | 'half_afternoon'
 export function calcDaysWithDuration(startStr, endStr, duration = 'full', holidaySet = new Set()) {
   if (startStr === endStr && duration !== 'full') {
-    return 0.5
+    return calcLeaveDays(startStr, endStr, holidaySet) > 0 ? 0.5 : 0
   }
   return calcLeaveDays(startStr, endStr, holidaySet)
 }
@@ -34,25 +46,25 @@ export const DURATION_LABELS = {
 // แสดงวันที่แบบไทย พ.ศ. เช่น 21 ส.ค. 2569
 export function formatThaiDate(dateStr) {
   if (!dateStr) return '-'
-  const d = new Date(dateStr)
+  const d = parseISODate(dateStr)
   return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // แสดงวันที่แบบไทยเต็มรูปแบบ เช่น วันเสาร์ที่ 22 สิงหาคม พ.ศ. 2569
 export function formatThaiDateLong(dateStr) {
-  const d = dateStr ? new Date(dateStr) : new Date()
+  const d = dateStr ? parseISODate(dateStr) : new Date()
   return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 // แปลงช่วงวันที่เป็นรายการ "วันทำการ" แต่ละวัน (จ-ส ไม่รวมวันอาทิตย์และวันหยุดที่เปิดใช้งาน) — ใช้ทำปฏิทินทีม
 export function expandBusinessDays(startStr, endStr, holidaySet = new Set()) {
   const dates = []
-  const start = new Date(startStr)
-  const end = new Date(endStr)
+  const start = parseISODate(startStr)
+  const end = parseISODate(endStr)
   const cur = new Date(start)
   while (cur <= end) {
     const day = cur.getDay()
-    const dateStr = cur.toISOString().slice(0, 10)
+    const dateStr = toISODate(cur)
     if (day !== 0 && !holidaySet.has(dateStr)) dates.push(dateStr)
     cur.setDate(cur.getDate() + 1)
   }
@@ -79,7 +91,7 @@ export function getMonthGrid(year, monthIndex) {
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, monthIndex, d)
     const dow = dt.getDay()
-    cells.push({ dateStr: dt.toISOString().slice(0, 10), dayNum: d, isWeekend: dow === 0 })
+    cells.push({ dateStr: toISODate(dt), dayNum: d, isWeekend: dow === 0 })
   }
   while (cells.length % 7 !== 0) cells.push(null)
   const weeks = []
@@ -88,5 +100,5 @@ export function getMonthGrid(year, monthIndex) {
 }
 
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  return toISODate(new Date())
 }

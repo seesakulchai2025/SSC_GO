@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { formatThaiDate, todayISO } from '../utils/dateUtils'
-import { fetchThaiPublicHolidays } from '../utils/holidaySync'
+import { formatThaiDate, formatThaiDateLong, todayISO } from '../utils/dateUtils'
+import { buildCompensatoryHolidays, fetchThaiPublicHolidays } from '../utils/holidaySync'
 
 export default function AdminHolidays() {
   const [holidays, setHolidays] = useState([])
@@ -13,6 +13,9 @@ export default function AdminHolidays() {
   const [syncYear, setSyncYear] = useState(new Date().getFullYear())
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
+  const [compensatoryYear, setCompensatoryYear] = useState(new Date().getFullYear())
+  const [generatingCompensatory, setGeneratingCompensatory] = useState(false)
+  const [compensatoryMsg, setCompensatoryMsg] = useState('')
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'holidays'), (snap) =>
@@ -51,6 +54,7 @@ export default function AdminHolidays() {
     try {
       const fetched = await fetchThaiPublicHolidays(syncYear)
       const existingDates = new Set(holidays.map((h) => h.date))
+      const allHolidays = [...holidays, ...fetched.map((h) => ({ ...h, source: 'auto', enabled: true }))]
       let added = 0
       for (const h of fetched) {
         if (existingDates.has(h.date)) continue
@@ -58,11 +62,35 @@ export default function AdminHolidays() {
         existingDates.add(h.date)
         added++
       }
+      const compensatory = buildCompensatoryHolidays(allHolidays, syncYear)
+      for (const holiday of compensatory) {
+        if (existingDates.has(holiday.date)) continue
+        await addDoc(collection(db, 'holidays'), holiday)
+        existingDates.add(holiday.date)
+        added++
+      }
       setSyncMsg(added > 0 ? `ดึงวันหยุดใหม่มาเพิ่ม ${added} วันเรียบร้อย` : 'ไม่มีวันหยุดใหม่ที่ต้องเพิ่ม (มีอยู่แล้วทั้งหมด)')
     } catch (err) {
       setSyncMsg('ดึงข้อมูลจากอินเทอร์เน็ตไม่สำเร็จ ลองใหม่อีกครั้ง หรือเพิ่มด้วยตนเองด้านล่าง')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function handleGenerateCompensatory() {
+    setGeneratingCompensatory(true)
+    setCompensatoryMsg('')
+    try {
+      const generated = buildCompensatoryHolidays(holidays, compensatoryYear)
+      for (const holiday of generated) {
+        if (holidays.some((existing) => existing.date === holiday.date)) continue
+        await addDoc(collection(db, 'holidays'), holiday)
+      }
+      setCompensatoryMsg(generated.length > 0 ? `เพิ่มวันหยุดชดเชย ${generated.length} วันแล้ว` : 'ไม่พบวันหยุดวันอาทิตย์ที่ต้องชดเชย หรือมีวันชดเชยครบแล้ว')
+    } catch (err) {
+      setCompensatoryMsg('สร้างวันหยุดชดเชยไม่สำเร็จ ลองใหม่อีกครั้ง')
+    } finally {
+      setGeneratingCompensatory(false)
     }
   }
 
@@ -99,6 +127,19 @@ export default function AdminHolidays() {
         </p>
       </div>
 
+      <div className="card p-4 space-y-3">
+        <p className="text-sm font-semibold text-ink">คำนวณวันหยุดชดเชยรายปี</p>
+        <p className="text-sm text-ink-soft">วันหยุดที่เปิดใช้งานและตรงวันอาทิตย์จะเลื่อนไปวันทำการถัดไป ระบบข้ามวันหยุดที่มีอยู่แล้วและไม่สร้างรายการซ้ำ ตรวจสอบประกาศทางการก่อนใช้งาน</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="compensatory-year" className="text-sm text-ink-soft">ปี ค.ศ.</label>
+          <input id="compensatory-year" type="number" min="2000" max="2100" value={compensatoryYear} onChange={(e) => setCompensatoryYear(Number(e.target.value))} className="input-field w-28" />
+          <button type="button" onClick={handleGenerateCompensatory} disabled={generatingCompensatory} className="btn-secondary py-2 px-4 text-sm">
+            {generatingCompensatory ? 'กำลังคำนวณ...' : 'สร้างวันหยุดชดเชย'}
+          </button>
+        </div>
+        {compensatoryMsg && <p className="text-sm text-ink-soft">{compensatoryMsg}</p>}
+      </div>
+
       <form onSubmit={addHoliday} className="card p-4 space-y-3">
         <p className="text-sm font-semibold text-ink">เพิ่มวันหยุดเอง</p>
         <div className="grid grid-cols-2 gap-3">
@@ -119,8 +160,9 @@ export default function AdminHolidays() {
                 <p className="font-semibold text-ink">
                   {h.name}
                   {h.source === 'auto' && <span className="ml-2 text-xs stamp-pending align-middle">ดึงอัตโนมัติ</span>}
+                  {h.source === 'compensatory' && <span className="ml-2 text-xs stamp-pending align-middle">ชดเชย</span>}
                 </p>
-                <p className="text-sm text-ink-soft font-mono">{formatThaiDate(h.date)}</p>
+                <p className="text-sm text-ink-soft">{formatThaiDateLong(h.date)}</p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <button
