@@ -140,18 +140,18 @@ export default function TeamCalendar() {
       </div>
 
       {selectedDate && (
-        <div className="fixed inset-0 z-30 bg-ink/40 flex items-center justify-center px-4 no-print" onClick={() => setSelectedDate(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="card w-full max-w-md p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink/50 p-3 no-print sm:p-6" onClick={() => setSelectedDate(null)}>
+          <section role="dialog" aria-modal="true" aria-label={`รายละเอียดวันที่ ${formatThaiDate(selectedDate)}`} onClick={(e) => e.stopPropagation()} className="card modal-frame w-full max-w-md">
+            <header className="flex shrink-0 items-center justify-between border-b border-ink/10 px-5 py-4">
               <div>
                 <p className="font-display font-semibold text-ink text-lg">{formatThaiDate(selectedDate)}</p>
                 {selectedHolidayName && <p className="text-sm text-clay font-semibold mt-0.5">🎌 {selectedHolidayName}</p>}
               </div>
-              <button onClick={() => setSelectedDate(null)} className="text-ink-soft text-xl leading-none">
+              <button onClick={() => setSelectedDate(null)} aria-label="ปิดรายละเอียดวันที่" className="px-2 text-xl leading-none text-ink-soft">
                 ×
               </button>
-            </div>
-            <div className="space-y-3">
+            </header>
+            <div className="modal-scroll space-y-3 p-5">
               {selectedList.length === 0 && <p className="text-ink-soft text-sm">ไม่มีใครลาวันนี้</p>}
               {selectedList.map((r) => (
                 <div key={r.id} className="border-b border-ink/10 pb-3 last:border-0 last:pb-0">
@@ -166,18 +166,18 @@ export default function TeamCalendar() {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         </div>
       )}
 
       {calendarTool && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink/50 px-3 py-4 sm:px-6 no-print" onClick={() => setCalendarTool(null)}>
-          <section role="dialog" aria-modal="true" aria-labelledby="calendar-tool-title" onClick={(event) => event.stopPropagation()} className="card relative max-h-[92vh] w-full max-w-4xl overflow-y-auto">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink/10 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink/50 p-3 no-print sm:p-6" onClick={() => setCalendarTool(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="calendar-tool-title" onClick={(event) => event.stopPropagation()} className="card modal-frame relative w-full max-w-4xl">
+            <header className="flex shrink-0 items-center justify-between border-b border-ink/10 bg-white px-4 py-3 sm:px-6">
               <h2 id="calendar-tool-title" className="font-display text-lg font-semibold text-ink">{calendarTool === 'leaveTypes' ? 'จัดการประเภทลา' : 'จัดการวันหยุด'}</h2>
               <button type="button" onClick={() => setCalendarTool(null)} aria-label="ปิดหน้าต่าง" className="px-2 text-2xl leading-none text-ink-soft">×</button>
-            </div>
-            {calendarTool === 'leaveTypes' ? <AdminLeaveTypes /> : <AdminHolidays />}
+            </header>
+            <div className="modal-scroll">{calendarTool === 'leaveTypes' ? <AdminLeaveTypes /> : <AdminHolidays />}</div>
           </section>
         </div>
       )}

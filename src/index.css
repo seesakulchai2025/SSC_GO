@@ -62,4 +62,18 @@
   .input-field {
     @apply w-full rounded-lg border-2 border-ink/15 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/50 focus:border-brass outline-none transition-colors;
   }
+
+  .modal-frame {
+    height: min(84vh, 760px);
+    min-height: min(84vh, 480px);
+    max-height: min(84vh, 760px);
+    @apply flex flex-col overflow-hidden;
+  }
+
+  .modal-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

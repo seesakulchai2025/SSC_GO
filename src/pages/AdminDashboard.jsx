@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import LeaveHistoryList from '../components/LeaveHistoryList'
 import EditRequestModal from '../components/EditRequestModal'
 import LeaveEditHistoryModal from '../components/LeaveEditHistoryModal'
-import { Link } from 'react-router-dom'
+import PrintLeaveForm from './PrintLeaveForm'
 
 const STATUS_OPTIONS = [
   { id: 'pending', label: 'รออนุมัติ' },
@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const [rowError, setRowError] = useState({})
   const [editingRequest, setEditingRequest] = useState(null)
   const [showEditHistory, setShowEditHistory] = useState(false)
+  const [printingRequestId, setPrintingRequestId] = useState(null)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('pending')
@@ -153,9 +154,9 @@ export default function AdminDashboard() {
         actions={(r) => (
           <div className="flex flex-col items-end gap-2">
             <div className="flex gap-2">
-              <Link to={`/print/${r.id}`} className="text-xs font-semibold text-ink-soft underline">
+              <button type="button" onClick={() => setPrintingRequestId(r.id)} className="text-xs font-semibold text-ink-soft underline">
                 พิมพ์ใบลา
-              </Link>
+              </button>
               <button onClick={() => setEditingRequest(r)} className="text-xs font-semibold text-brass-dark underline">
                 แก้ไข
               </button>
@@ -190,6 +191,7 @@ export default function AdminDashboard() {
         <EditRequestModal request={editingRequest} leaveTypes={leaveTypes} onClose={() => setEditingRequest(null)} />
       )}
       {showEditHistory && <LeaveEditHistoryModal onClose={() => setShowEditHistory(false)} />}
+      {printingRequestId && <PrintLeaveForm requestId={printingRequestId} onClose={() => setPrintingRequestId(null)} />}
     </div>
   )
 }

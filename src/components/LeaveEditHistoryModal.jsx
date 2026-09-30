@@ -64,7 +64,7 @@ export default function LeaveEditHistoryModal({ onClose }) {
 
   return (
     <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-3 py-4 sm:px-6" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-labelledby="leave-edit-history-title" onClick={(event) => event.stopPropagation()} className="card flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden">
+      <section role="dialog" aria-modal="true" aria-labelledby="leave-edit-history-title" onClick={(event) => event.stopPropagation()} className="card modal-frame w-full max-w-3xl">
         <header className="flex items-start justify-between gap-4 border-b border-ink/10 px-4 py-4 sm:px-6">
           <div>
             <h2 id="leave-edit-history-title" className="font-display text-xl font-semibold text-ink">ประวัติการแก้ไขใบลา</h2>
@@ -73,7 +73,7 @@ export default function LeaveEditHistoryModal({ onClose }) {
           <button type="button" onClick={onClose} aria-label="ปิดประวัติการแก้ไข" className="shrink-0 px-2 text-2xl leading-none text-ink-soft">×</button>
         </header>
 
-        <div className="space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="modal-scroll space-y-4 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex rounded-md border border-ink/15 p-1" role="group" aria-label="ช่วงเวลาประวัติ">
               {PERIOD_OPTIONS.map((option) => (

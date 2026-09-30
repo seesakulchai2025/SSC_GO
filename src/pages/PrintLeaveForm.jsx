@@ -35,8 +35,10 @@ function SignatureBlock({ signatureData, name, role, fallbackName }) {
   )
 }
 
-export default function PrintLeaveForm() {
-  const { id } = useParams()
+export default function PrintLeaveForm({ requestId, onClose }) {
+  const { id: routeId } = useParams()
+  const id = requestId || routeId
+  const isModal = Boolean(onClose)
   const { employee } = useAuth()
   const [request, setRequest] = useState(null)
   const [reviewerSignature, setReviewerSignature] = useState(null)
@@ -65,17 +67,17 @@ export default function PrintLeaveForm() {
   }, [id])
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-10 text-center text-ink-soft">กำลังโหลด...</div>
+    return <div className={isModal ? 'fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-3 text-ink-soft' : 'max-w-2xl mx-auto px-4 py-10 text-center text-ink-soft'}>{isModal ? <div className="card modal-frame w-full max-w-md items-center justify-center px-4">กำลังโหลด...</div> : 'กำลังโหลด...'}</div>
   }
 
   if (notFound) {
-    return <div className="max-w-2xl mx-auto px-4 py-10 text-center text-clay">ไม่พบใบลานี้</div>
+    return <div className={isModal ? 'fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-3 text-clay' : 'max-w-2xl mx-auto px-4 py-10 text-center text-clay'}>{isModal ? <div className="card modal-frame w-full max-w-md items-center justify-center px-4">ไม่พบใบลานี้</div> : 'ไม่พบใบลานี้'}</div>
   }
 
   const isOwner = request.employeeId === employee.id
   const isAdmin = employee.role === 'admin'
   if (!isOwner && !isAdmin) {
-    return <div className="max-w-2xl mx-auto px-4 py-10 text-center text-clay">คุณไม่มีสิทธิ์เข้าถึงใบลานี้</div>
+    return <div className={isModal ? 'fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-3 text-clay' : 'max-w-2xl mx-auto px-4 py-10 text-center text-clay'}>{isModal ? <div className="card modal-frame w-full max-w-md items-center justify-center px-4">คุณไม่มีสิทธิ์เข้าถึงใบลานี้</div> : 'คุณไม่มีสิทธิ์เข้าถึงใบลานี้'}</div>
   }
 
   const durationLabel = request.duration && request.duration !== 'full' ? ` (${DURATION_LABELS[request.duration]})` : ''
@@ -85,20 +87,30 @@ export default function PrintLeaveForm() {
       : `ตั้งแต่วันที่ ${formatThaiDate(request.startDate)} ถึงวันที่ ${formatThaiDate(request.endDate)}`
 
   return (
-    <div className="bg-paperDark min-h-screen">
-      <div className="max-w-2xl mx-auto px-4 py-6 no-print flex items-center justify-between">
-        <Link to="/" className="text-sm font-semibold text-ink-soft underline">
-          ← กลับ
-        </Link>
-        <button onClick={() => window.print()} className="btn-primary py-2 px-5 text-sm">
-          พิมพ์ / บันทึกเป็น PDF
-        </button>
-      </div>
-      <p className="max-w-2xl mx-auto px-4 -mt-3 mb-3 no-print text-xs text-ink-soft">
-        หลังพิมพ์แล้ว กรุณาเซ็นชื่อในช่อง "ผู้ขอลา" ด้วยตนเองก่อนส่งเก็บเป็นหลักฐาน — ลายเซ็นฝั่งผู้อนุมัติจะแสดงให้อัตโนมัติแล้ว
-      </p>
+    <div className={isModal ? 'print-leave-overlay fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink/50 p-3 sm:p-6' : 'bg-paperDark min-h-screen'} onClick={isModal ? onClose : undefined}>
+      <div
+        role={isModal ? 'dialog' : undefined}
+        aria-modal={isModal ? 'true' : undefined}
+        aria-label={isModal ? `แบบฟอร์มใบลา ${request.employeeName}` : undefined}
+        onClick={isModal ? (event) => event.stopPropagation() : undefined}
+        className={isModal ? 'print-leave-dialog modal-frame w-full max-w-3xl bg-paperDark' : 'min-h-screen'}
+      >
+        <div className="max-w-2xl mx-auto w-full shrink-0 px-4 py-4 no-print flex items-center justify-between">
+          {isModal ? (
+            <button type="button" onClick={onClose} className="text-sm font-semibold text-ink-soft underline">ปิด</button>
+          ) : (
+            <Link to="/" className="text-sm font-semibold text-ink-soft underline">← กลับ</Link>
+          )}
+          <button onClick={() => window.print()} className="btn-primary py-2 px-5 text-sm">
+            พิมพ์ / บันทึกเป็น PDF
+          </button>
+        </div>
+        <p className="max-w-2xl mx-auto w-full shrink-0 px-4 pb-3 no-print text-xs text-ink-soft">
+          หลังพิมพ์แล้ว กรุณาเซ็นชื่อในช่อง "ผู้ขอลา" ด้วยตนเองก่อนส่งเก็บเป็นหลักฐาน — ลายเซ็นฝั่งผู้อนุมัติจะแสดงให้อัตโนมัติแล้ว
+        </p>
 
-      <div id="print-sheet" className="max-w-2xl mx-auto bg-white shadow-stamp px-10 py-10 mb-10 text-ink" style={{ fontFamily: "'IBM Plex Sans Thai', sans-serif" }}>
+        <div className={isModal ? 'modal-scroll' : undefined}>
+        <div id="print-sheet" className="max-w-2xl mx-auto bg-white shadow-stamp px-10 py-10 mb-10 text-ink" style={{ fontFamily: "'IBM Plex Sans Thai', sans-serif" }}>
         {/* หัวข้อกระดาษ */}
         <div className="text-center border-b-2 border-ink pb-4 mb-6">
           <p className="font-display text-xl font-bold">{COMPANY_NAME}</p>
@@ -162,14 +174,20 @@ export default function PrintLeaveForm() {
           <SignatureBlock signatureData={null} name={null} role="ผู้ตรวจสอบ" />
           <SignatureBlock signatureData={reviewerSignature} name={request.reviewedBy} role="ผู้อนุมัติ" />
         </div>
+        </div>
+        </div>
       </div>
 
       <style>{`
         @media print {
           @page { size: A4; margin: 1.5cm; }
           body { background: white !important; }
+          body * { visibility: hidden !important; }
+          #print-sheet, #print-sheet * { visibility: visible !important; }
           .no-print { display: none !important; }
-          #print-sheet { box-shadow: none !important; margin: 0 !important; max-width: 100% !important; }
+          .print-leave-overlay, .print-leave-dialog { position: static !important; display: block !important; overflow: visible !important; height: auto !important; min-height: 0 !important; max-height: none !important; max-width: none !important; margin: 0 !important; padding: 0 !important; background: white !important; }
+          .modal-scroll { overflow: visible !important; flex: none !important; }
+          #print-sheet { position: absolute !important; top: 0 !important; left: 0 !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; }
         }
       `}</style>
     </div>

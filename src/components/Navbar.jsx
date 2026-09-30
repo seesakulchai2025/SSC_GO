@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLeaveNotifications } from '../hooks/useLeaveNotifications'
 import { useAdminPendingCount } from '../hooks/useAdminPendingCount'
@@ -26,7 +26,7 @@ export default function Navbar() {
   const [showProfile, setShowProfile] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const { unseenCount, markAllSeen } = useLeaveNotifications(employee?.id)
-  const pendingCount = useAdminPendingCount(isAdmin)
+  const { count: pendingCount, notice, dismissNotice } = useAdminPendingCount(isAdmin)
   const badgeFor = (badge) => (badge === 'unseen' ? unseenCount : badge === 'pending' ? pendingCount : 0)
   const linkClass = ({ isActive }) =>
     `flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
@@ -42,9 +42,10 @@ export default function Navbar() {
       <>
         <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase text-ink-soft/70">การใช้งาน</p>
         <NavLink to="/" end className={linkClass} onClick={() => handleNavigation('/')}>
-          <span>ลงเวลาเข้างาน</span>
+          <span>ลงวันลา</span>
           <Badge count={badgeFor('unseen')} />
         </NavLink>
+        <NavLink to="/attendance" className={linkClass} onClick={() => handleNavigation('/attendance')}>ลงเวลาเข้างาน</NavLink>
 
         {isAdmin && (
           <>
@@ -126,6 +127,20 @@ export default function Navbar() {
       )}
 
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
+      {isAdmin && notice && (
+        <aside role="alert" className="no-print fixed right-4 top-16 z-[60] w-[calc(100%-2rem)] max-w-sm rounded-lg border border-sage/30 bg-white p-4 shadow-stamp lg:left-[17rem] lg:right-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-ink">มีคำขอลาใหม่รออนุมัติ</p>
+              <p className="mt-1 text-sm text-ink-soft">
+                {notice.count > 1 ? `เข้ามา ${notice.count} รายการ` : `${notice.employeeName || 'พนักงาน'} ยื่นใบลา`}
+              </p>
+              <Link to="/admin" onClick={dismissNotice} className="mt-2 inline-block text-sm font-semibold text-brass-dark underline">ไปหน้าอนุมัติ</Link>
+            </div>
+            <button type="button" onClick={dismissNotice} aria-label="ปิดการแจ้งเตือน" className="shrink-0 px-1 text-xl leading-none text-ink-soft">×</button>
+          </div>
+        </aside>
+      )}
     </>
   )
 }

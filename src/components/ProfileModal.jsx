@@ -36,15 +36,16 @@ export default function ProfileModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-30 bg-ink/40 flex items-center justify-center px-4 no-print" onClick={onClose}>
-      <form onClick={(e) => e.stopPropagation()} onSubmit={handleSave} className="card w-full max-w-sm p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display font-semibold text-ink text-lg">ข้อมูลของฉัน</h2>
-          <button type="button" onClick={onClose} className="text-ink-soft text-xl leading-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink/50 p-3 no-print sm:p-6" onClick={onClose}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={handleSave} className="card modal-frame w-full max-w-md">
+        <header className="flex shrink-0 items-center justify-between border-b border-ink/10 px-5 py-4">
+          <h2 className="font-display text-lg font-semibold text-ink">ข้อมูลของฉัน</h2>
+          <button type="button" onClick={onClose} aria-label="ปิดข้อมูลของฉัน" className="px-2 text-xl leading-none text-ink-soft">
             ×
           </button>
-        </div>
+        </header>
 
+        <div className="modal-scroll space-y-4 px-5 py-4">
         <div>
           <label className="text-sm text-ink-soft mb-1 block">ชื่อ-นามสกุล</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className="input-field" required />
@@ -77,9 +78,12 @@ export default function ProfileModal({ onClose }) {
         {error && <p className="text-clay text-sm">{error}</p>}
         {success && <p className="text-sage text-sm font-semibold">บันทึกเรียบร้อย</p>}
 
-        <button className="btn-primary w-full" disabled={busy}>
-          {busy ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
-        </button>
+        </div>
+        <footer className="shrink-0 border-t border-ink/10 p-4">
+          <button className="btn-primary w-full" disabled={busy}>
+            {busy ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
+          </button>
+        </footer>
       </form>
     </div>
   )

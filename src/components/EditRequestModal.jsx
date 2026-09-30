@@ -86,15 +86,16 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-30 bg-ink/40 flex items-center justify-center px-4 no-print" onClick={onClose}>
-      <form onClick={(e) => e.stopPropagation()} onSubmit={handleSave} className="card w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display font-semibold text-ink text-lg">แก้ไขใบลา</h2>
-          <button type="button" onClick={onClose} className="text-ink-soft text-xl leading-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-ink/50 p-3 no-print sm:p-6" onClick={onClose}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={handleSave} className="card modal-frame w-full max-w-md">
+        <header className="flex shrink-0 items-center justify-between border-b border-ink/10 px-5 py-4">
+          <h2 className="font-display text-lg font-semibold text-ink">แก้ไขใบลา</h2>
+          <button type="button" onClick={onClose} aria-label="ปิดแก้ไขใบลา" className="px-2 text-xl leading-none text-ink-soft">
             ×
           </button>
-        </div>
-        <p className="text-sm text-ink-soft -mt-2">{request.employeeName}</p>
+        </header>
+        <div className="modal-scroll space-y-4 px-5 py-4">
+        <p className="text-sm text-ink-soft">{request.employeeName}</p>
 
         <div>
           <label className="text-sm text-ink-soft mb-1 block">ประเภทการลา</label>
@@ -147,14 +148,15 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
 
         {error && <p className="text-clay text-sm">{error}</p>}
 
-        <div className="flex gap-2">
+        </div>
+        <footer className="flex shrink-0 gap-2 border-t border-ink/10 p-4">
           <button className="btn-primary flex-1" disabled={busy}>
             {busy ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
           </button>
           <button type="button" onClick={onClose} className="btn-secondary flex-1">
             ยกเลิก
           </button>
-        </div>
+        </footer>
       </form>
     </div>
   )
