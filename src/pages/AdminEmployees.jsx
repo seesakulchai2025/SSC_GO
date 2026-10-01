@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const GENDER_LABELS = { female: 'หญิง', male: 'ชาย' }
