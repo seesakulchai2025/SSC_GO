@@ -60,16 +60,13 @@ npm run dev
 
 ### กำหนดสิทธิ์ข้อมูลเงินเดือน
 
-ข้อมูลเงินเดือนและจำนวนวันทำงานรายงวดถูกแยกเก็บใน `payrollProfiles` และ `payrollRecords` โดย Firestore Rules อนุญาตเฉพาะ Firebase UID ใน allowlist เท่านั้น
+ข้อมูลเงินเดือนและจำนวนวันทำงานรายงวดถูกแยกเก็บใน `payrollProfiles` และ `payrollRecords` โดย Firestore Rules อนุญาตเฉพาะ Firebase UID ใน allowlist เท่านั้น การ login และข้อมูลพนักงานทั่วไปยังใช้สิทธิ์ Anonymous Auth ตามปกติ แม้ UID ยังไม่ได้ allowlist ก็ยังเข้าระบบและเห็นรายชื่อพนักงานได้
 
-1. เปิดแอปบนอุปกรณ์แอดมินเพื่อสร้าง Anonymous Auth session แล้วดู UID ใน Firebase Console → Authentication → Users
-2. ใน Firestore Console สร้างเอกสาร `meta/payrollAdmins` โดยกำหนดฟิลด์ `uids` เป็น array เช่น `['UID ที่คัดลอก']`
-3. เผยแพร่ `firestore.rules` ไปยัง Firebase แล้วโหลดแอปใหม่; UID ที่อนุญาตจะเข้าเมนู **พนักงาน** เพื่อย้ายข้อมูลเก่าได้
-4. ระบบจะย้ายฟิลด์เงินเดือนเดิมไป `payrollProfiles` และทำเครื่องหมายเอกสารพนักงานที่พร้อมใช้งาน ผู้ใช้ทั่วไปอ่านได้เฉพาะเอกสารที่ผ่าน migration แล้ว
+1. Login เป็นแอดมินตามปกติ แล้วคัดลอก UID จากเมนู **พนักงาน** หรือ Firebase Console → Authentication → Users
+2. ใน Firestore Console สร้างเอกสาร `meta/payrollAdmins` โดยตั้ง field `uids` เป็น array ของ UID แอดมิน เช่น `['UID ที่คัดลอก']`
+3. เผยแพร่ `firestore.rules` ไปยัง Firebase แล้วโหลดแอปใหม่ เพื่อเปิดใช้และย้ายข้อมูลเงินเดือนเดิมเข้า `payrollProfiles`
 
-สำหรับโปรเจกต์ใหม่ ให้สร้างแอดมินคนแรกก่อน แล้วค่อยเพิ่ม UID ตามขั้นตอนข้างต้น
-
-สำหรับระบบที่มีข้อมูลพนักงานเดิม ควรทำช่วงบำรุงรักษาสั้น ๆ ระหว่างเผยแพร่ Rules และ migration เพราะผู้ใช้ทั่วไปจะเข้าเอกสารที่ยังไม่ย้ายไม่ได้ เพิ่ม UID ของแต่ละอุปกรณ์แอดมินแยกกัน หากออกจากระบบหรือล้างข้อมูลเว็บไซต์ Anonymous UID จะเปลี่ยน ต้องเพิ่ม UID ใหม่ใน allowlist ก่อนใช้หน้าเงินเดือนอีกครั้ง
+เพิ่ม UID ของแต่ละอุปกรณ์แอดมินแยกกัน หากออกจากระบบหรือล้างข้อมูลเว็บไซต์ Anonymous UID จะเปลี่ยน ต้องเพิ่ม UID ใหม่ใน allowlist ก่อนใช้หน้าเงินเดือนอีกครั้ง โดยไม่กระทบการ login หรือเมนูพนักงานทั่วไป
 
 ## 3) Deploy ขึ้น Netlify
 
@@ -95,7 +92,7 @@ npm run build
 
 ## โครงสร้างข้อมูล (Firestore)
 
-- **employees** — ชื่อ, PIN, แผนก, สิทธิ์ (employee/admin), โควตาวันลารายบุคคล, สถานะเปิด/ปิดใช้งาน และ marker ว่าผ่าน migration แล้ว
+- **employees** — ชื่อ, PIN, แผนก, สิทธิ์ (employee/admin), โควตาวันลารายบุคคล, สถานะเปิด/ปิดใช้งาน
 - **payrollProfiles** — สถานะการจ้าง, เงินเดือน/ค่าแรง, เงินหัก และเบี้ยขยัน (จำกัดด้วย Firebase UID allowlist)
 - **payrollRecords** — จำนวนวันทำงานที่แอดมินกรอกในแต่ละงวดเงินเดือน (จำกัดด้วย Firebase UID allowlist)
 - **leaveTypes** — ชื่อประเภทลา, จำนวนวันมาตรฐาน/ปี

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcDaysWithDuration, formatThaiDate, formatThaiDateLong, DURATION_LABELS, todayISO } from '../utils/dateUtils'
 import { useHolidays } from '../context/HolidaysContext'
@@ -72,7 +72,7 @@ export default function AdminReports() {
     const unsubTypes = onSnapshot(collection(db, 'leaveTypes'), (snap) => {
       setLeaveTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
     })
-    const unsubEmployees = onSnapshot(query(collection(db, 'employees'), where('payrollProfileReady', '==', true)), (snap) => {
+    const unsubEmployees = onSnapshot(collection(db, 'employees'), (snap) => {
       setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     })
     return () => {

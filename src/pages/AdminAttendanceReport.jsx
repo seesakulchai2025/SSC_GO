@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { ATTENDANCE_EVENTS, getAttendanceEvents } from '../utils/attendanceUtils'
 import { todayISO } from '../utils/dateUtils'
@@ -44,7 +44,7 @@ export default function AdminAttendanceReport() {
   const [records, setRecords] = useState([])
 
   useEffect(() => {
-    const unsubscribeEmployees = onSnapshot(query(collection(db, 'employees'), where('payrollProfileReady', '==', true)), (snapshot) => {
+    const unsubscribeEmployees = onSnapshot(collection(db, 'employees'), (snapshot) => {
       setEmployees(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     })
     const unsubscribeAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { auth } from '../firebase'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 
@@ -114,6 +115,11 @@ export default function PinLogin() {
         <div className="card w-full max-w-sm p-8">
           <p className="font-mono text-xs tracking-widest text-brass-dark uppercase mb-1">ตั้งค่าครั้งแรก</p>
           <h1 className="font-display text-2xl font-semibold text-ink mb-6">สร้างบัญชีผู้ดูแลระบบ</h1>
+          <div className="mb-5 border-y border-ink/10 py-3 text-left">
+            <p className="text-xs font-semibold text-ink">Firebase UID ของอุปกรณ์นี้</p>
+            <code className="mt-1 block break-all font-mono text-xs text-ink-soft">{auth?.currentUser?.uid || 'กำลังเชื่อมต่อ...'}</code>
+            <p className="mt-2 text-xs text-ink-soft">ถ้าเป็นระบบเดิมที่มีพนักงานแล้ว อย่าสร้างแอดมินซ้ำ ให้นำ UID นี้เพิ่มใน Firestore ที่ `meta/payrollAdmins` ฟิลด์ `uids` แล้วโหลดหน้านี้ใหม่</p>
+          </div>
           <form onSubmit={handleSetupSubmit} className="space-y-4">
             <div>
               <label className="text-sm text-ink-soft mb-1 block">ชื่อ-นามสกุล</label>

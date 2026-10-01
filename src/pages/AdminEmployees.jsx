@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { collection, onSnapshot, doc, deleteField, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const GENDER_LABELS = { female: 'หญิง', male: 'ชาย' }
@@ -73,7 +73,7 @@ function PayrollFields({ form, setForm }) {
   )
 }
 
-function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
+function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({
     name: emp.name,
@@ -107,10 +107,10 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
           <p className="text-xs text-ink-soft font-mono">
             PIN: {emp.pin} {emp.gender && `· ${GENDER_LABELS[emp.gender] || emp.gender}`}
           </p>
-          <p className="mt-1 text-xs text-ink-soft">
+          {canManagePayroll && <p className="mt-1 text-xs text-ink-soft">
             {EMPLOYMENT_STATUS_LABELS[payrollProfile?.employmentStatus] || 'ยังไม่ระบุสถานะ'}
             {payrollProfile?.baseSalary > 0 && ` · ${Number(payrollProfile.baseSalary).toLocaleString('th-TH')} บาท${payrollProfile.employmentStatus === 'permanent' ? '/เดือน' : '/วัน'}`}
-          </p>
+          </p>}
         </div>
         <button onClick={() => setEditing(true)} className="btn-secondary py-2 px-4 text-sm">
           แก้ไข
@@ -137,7 +137,7 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
       </div>
       <p className="text-xs text-ink-soft -mt-1">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
 
-      <PayrollFields form={form} setForm={setForm} />
+      {canManagePayroll && <PayrollFields form={form} setForm={setForm} />}
 
       <div>
         <p className="text-sm text-ink-soft mb-2">โควตาวันลาต่อปี (เว้นว่าง = ใช้ค่าเริ่มต้น)</p>
@@ -188,6 +188,7 @@ export default function AdminEmployees() {
   const [newEmp, setNewEmp] = useState(createEmployeeForm)
   const [error, setError] = useState('')
   const [payrollAccessError, setPayrollAccessError] = useState('')
+  const [canManagePayroll, setCanManagePayroll] = useState(false)
   const [payrollProfilesLoaded, setPayrollProfilesLoaded] = useState(false)
   const migrationStarted = useRef(false)
 
@@ -198,23 +199,24 @@ export default function AdminEmployees() {
     let unsubPayrollProfiles
 
     async function subscribeAdminData() {
+      unsubEmployees = onSnapshot(
+        collection(db, 'employees'),
+        (snap) => setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th'))),
+        () => setError('โหลดข้อมูลพนักงานไม่สำเร็จ')
+      )
+      unsubLeaveTypes = onSnapshot(collection(db, 'leaveTypes'), (snap) =>
+        setLeaveTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
+      )
+
       const allowlist = await getDoc(doc(db, 'meta', 'payrollAdmins'))
       const allowed = allowlist.data()?.uids?.includes(auth?.currentUser?.uid)
       if (!active) return
       if (!allowed) {
         setPayrollProfilesLoaded(true)
-        setPayrollAccessError('บัญชีนี้ยังไม่มีสิทธิ์เข้าถึงข้อมูลพนักงานและเงินเดือน กรุณาเพิ่ม Firebase UID ใน allowlist แล้วโหลดหน้าใหม่')
+        setPayrollAccessError('บัญชีนี้ยังไม่มีสิทธิ์จัดการข้อมูลเงินเดือน รายชื่อพนักงานยังใช้งานได้ตามปกติ')
         return
       }
-
-      unsubEmployees = onSnapshot(
-        collection(db, 'employees'),
-        (snap) => setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th'))),
-        () => setPayrollAccessError('อ่านข้อมูลพนักงานไม่ได้ กรุณาตรวจ Firestore Rules')
-      )
-      unsubLeaveTypes = onSnapshot(collection(db, 'leaveTypes'), (snap) =>
-        setLeaveTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
-      )
+      setCanManagePayroll(true)
       unsubPayrollProfiles = onSnapshot(collection(db, 'payrollProfiles'), (snap) => {
         setPayrollProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setPayrollProfilesLoaded(true)
@@ -239,7 +241,7 @@ export default function AdminEmployees() {
   }, [])
 
   useEffect(() => {
-    if (!payrollProfilesLoaded || payrollAccessError || migrationStarted.current) return
+    if (!canManagePayroll || !payrollProfilesLoaded || migrationStarted.current) return
     const employeesToMigrate = employees.filter((employee) => employee.payrollProfileReady !== true)
     if (employeesToMigrate.length === 0) return
 
@@ -271,10 +273,14 @@ export default function AdminEmployees() {
       migrationStarted.current = false
       setPayrollAccessError('ย้ายข้อมูลเงินเดือนเดิมไม่สำเร็จ กรุณาตรวจสิทธิ์ Firestore Rules')
     })
-  }, [employees, payrollProfiles, payrollProfilesLoaded, payrollAccessError])
+  }, [employees, payrollProfiles, payrollProfilesLoaded, canManagePayroll])
 
   async function saveEmployee(id, form) {
     const { employee, payroll } = splitEmployeeData(form)
+    if (!canManagePayroll) {
+      await updateDoc(doc(db, 'employees', id), employee)
+      return
+    }
     const batch = writeBatch(db)
     batch.update(doc(db, 'employees', id), {
       ...employee,
@@ -296,6 +302,17 @@ export default function AdminEmployees() {
       return
     }
     const { employee, payroll } = splitEmployeeData(newEmp)
+    if (!canManagePayroll) {
+      await addDoc(collection(db, 'employees'), {
+        ...employee,
+        active: true,
+        balances: {},
+        createdAt: serverTimestamp(),
+      })
+      setNewEmp(createEmployeeForm())
+      setShowAdd(false)
+      return
+    }
     const employeeRef = doc(collection(db, 'employees'))
     const batch = writeBatch(db)
     batch.set(employeeRef, {
@@ -322,7 +339,7 @@ export default function AdminEmployees() {
 
       <section className="space-y-2 border-y border-ink/10 py-4 text-sm">
         <p className="font-semibold text-ink">สิทธิ์ข้อมูลเงินเดือนของบัญชีนี้</p>
-        <p className="text-xs text-ink-soft">เพิ่ม UID นี้ในเอกสาร Firestore <span className="font-mono">meta/payrollAdmins</span> ในฟิลด์ <span className="font-mono">uids</span> (array) แล้วเผยแพร่ Firestore Rules เพื่อเปิดสิทธิ์ แยก UID ของแต่ละอุปกรณ์</p>
+        <p className="text-xs text-ink-soft">เพิ่ม UID นี้ในเอกสาร Firestore <span className="font-mono">meta/payrollAdmins</span> ในฟิลด์ <span className="font-mono">uids</span> (array) แล้วเผยแพร่ Firestore Rules เพื่อเปิดสิทธิ์เงินเดือน รายชื่อและข้อมูลพนักงานทั่วไปใช้ได้ตามปกติ</p>
         <code className="block break-all rounded bg-ink/5 p-2 font-mono text-xs">{auth?.currentUser?.uid || 'กำลังโหลด Firebase UID...'}</code>
       </section>
 
@@ -345,7 +362,7 @@ export default function AdminEmployees() {
             </select>
           </div>
           <p className="text-xs text-ink-soft">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
-          <PayrollFields form={newEmp} setForm={setNewEmp} />
+          {canManagePayroll && <PayrollFields form={newEmp} setForm={setNewEmp} />}
           {error && <p className="text-clay text-sm">{error}</p>}
           <button className="btn-primary py-2 px-4 text-sm">บันทึกพนักงานใหม่</button>
         </form>
@@ -353,7 +370,7 @@ export default function AdminEmployees() {
 
       <div className="space-y-3">
         {employees.map((emp) => (
-          <EmployeeRow key={emp.id} emp={emp} payrollProfile={payrollProfiles.find((profile) => profile.id === emp.id)} leaveTypes={leaveTypes} onSave={saveEmployee} />
+          <EmployeeRow key={emp.id} emp={emp} payrollProfile={payrollProfiles.find((profile) => profile.id === emp.id)} canManagePayroll={canManagePayroll} leaveTypes={leaveTypes} onSave={saveEmployee} />
         ))}
       </div>
     </div>

@@ -29,7 +29,7 @@ export default function AdminPayroll() {
 
   useEffect(() => {
     const unsubscribeEmployees = onSnapshot(
-      query(collection(db, 'employees'), where('payrollProfileReady', '==', true)),
+      collection(db, 'employees'),
       (snapshot) => {
         setEmployees(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
         setEmployeesLoaded(true)

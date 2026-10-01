@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot, addDoc, query, where, serverTimestamp } from 'firebase/firestore'
+import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useHolidays } from '../context/HolidaysContext'
@@ -31,7 +31,7 @@ export default function AdminAddLeave() {
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    const unsub1 = onSnapshot(query(collection(db, 'employees'), where('payrollProfileReady', '==', true)), (snap) =>
+    const unsub1 = onSnapshot(collection(db, 'employees'), (snap) =>
       setEmployees(
         snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))

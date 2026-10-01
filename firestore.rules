@@ -29,25 +29,21 @@ service cloud.firestore {
         'attendanceBonus',
         'payrollProfileReady'
       ];
-      return (!changedKeys.hasAny(payrollKeys)
-          && resource.data.payrollProfileReady == true)
+      return !changedKeys.hasAny(payrollKeys)
         || (isPayrollAdmin()
           && hasNoPayrollFields(request.resource.data)
           && request.resource.data.payrollProfileReady == true);
     }
 
-    // เอกสารพนักงานทั่วไปต้องผ่าน migration ก่อน; ข้อมูลเงินเดือนอยู่ใน collection ที่จำกัด UID
-    // collection อื่นยังใช้ Anonymous Auth ตามรูปแบบเดิม
+    // ข้อมูลพนักงานทั่วไปยังอ่านได้ด้วย Anonymous Auth ตามรูปแบบเดิม
+    // จำกัดเฉพาะข้อมูลเงินเดือนใน payrollProfiles/payrollRecords ด้วย UID allowlist
     // หมายเหตุด้านความปลอดภัย: กติกานี้เหมาะกับเครื่องมือใช้งานภายในองค์กรขนาดเล็ก-กลาง
     // ที่ไม่ได้เปิดสู่สาธารณะ ถ้าต้องการความปลอดภัยระดับสูงขึ้น (เช่น ป้องกันการเดา PIN
     // จากฝั่ง client) แนะนำให้ย้ายการตรวจสอบ PIN ไปทำผ่าน Cloud Function ในอนาคต
 
     match /employees/{employeeId} {
-      allow read: if request.auth != null
-        && (isPayrollAdmin() || resource.data.payrollProfileReady == true);
-      allow create: if request.auth != null
-        && request.resource.data.payrollProfileReady == true
-        && hasNoPayrollFields(request.resource.data);
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && hasNoPayrollFields(request.resource.data);
       allow update: if request.auth != null && canUpdateEmployeeWithoutPayrollChanges();
       allow delete: if false;
     }
