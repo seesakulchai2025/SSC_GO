@@ -2,49 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isPayrollAdmin() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/meta/payrollAdmins)
-        && get(/databases/$(database)/documents/meta/payrollAdmins).data.uids is list
-        && get(/databases/$(database)/documents/meta/payrollAdmins).data.uids.hasAny([request.auth.uid]);
-    }
-
-    function hasNoPayrollFields(data) {
-      return !data.keys().hasAny([
-        'employmentStatus',
-        'baseSalary',
-        'employmentDeposit',
-        'socialSecurityDeduction',
-        'attendanceBonus'
-      ]);
-    }
-
-    function canUpdateEmployeeWithoutPayrollChanges() {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      let payrollKeys = [
-        'employmentStatus',
-        'baseSalary',
-        'employmentDeposit',
-        'socialSecurityDeduction',
-        'attendanceBonus',
-        'payrollProfileReady'
-      ];
-      return !changedKeys.hasAny(payrollKeys)
-        || (isPayrollAdmin()
-          && hasNoPayrollFields(request.resource.data)
-          && request.resource.data.payrollProfileReady == true);
-    }
-
     // ข้อมูลพนักงานทั่วไปยังอ่านได้ด้วย Anonymous Auth ตามรูปแบบเดิม
-    // จำกัดเฉพาะข้อมูลเงินเดือนใน payrollProfiles/payrollRecords ด้วย UID allowlist
+    // หน้าจอแอปเป็นผู้ซ่อนเมนูตาม role; Rules ใช้การยืนยันตัวตนแบบ Anonymous
     // หมายเหตุด้านความปลอดภัย: กติกานี้เหมาะกับเครื่องมือใช้งานภายในองค์กรขนาดเล็ก-กลาง
     // ที่ไม่ได้เปิดสู่สาธารณะ ถ้าต้องการความปลอดภัยระดับสูงขึ้น (เช่น ป้องกันการเดา PIN
     // จากฝั่ง client) แนะนำให้ย้ายการตรวจสอบ PIN ไปทำผ่าน Cloud Function ในอนาคต
 
     match /employees/{employeeId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && hasNoPayrollFields(request.resource.data);
-      allow update: if request.auth != null && canUpdateEmployeeWithoutPayrollChanges();
+      allow create, update: if request.auth != null;
       allow delete: if false;
     }
 
@@ -73,11 +39,11 @@ service cloud.firestore {
     }
 
     match /payrollProfiles/{employeeId} {
-      allow read, write: if isPayrollAdmin();
+      allow read, write: if request.auth != null;
     }
 
     match /payrollRecords/{payrollRecordId} {
-      allow read, write: if isPayrollAdmin();
+      allow read, write: if request.auth != null;
     }
 
     match /leaveEditAuditLogs/{logId} {
@@ -88,7 +54,7 @@ service cloud.firestore {
     // เอกสารข้อมูลระบบภายใน เช่น ตัวบันทึกว่าปีไหนดึงวันหยุดราชการมาแล้วบ้าง
     match /meta/{docId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && docId != 'payrollAdmins';
+      allow write: if request.auth != null;
     }
   }
 }

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const GENDER_LABELS = { female: 'หญิง', male: 'ชาย' }
-const EMPLOYMENT_STATUS_LABELS = { intern: 'ฝึกงาน', probation: 'ทดลองงาน', permanent: 'บรรจุแล้ว' }
-const PAYROLL_FIELDS = ['employmentStatus', 'baseSalary', 'employmentDeposit', 'socialSecurityDeduction', 'attendanceBonus']
+const EMPLOYMENT_STATUS_LABELS = { permanent: 'บรรจุ', probation: 'ทดลองงาน', intern: 'ฝึกงาน' }
+const PAYROLL_FIELDS = ['baseSalary', 'employmentDeposit', 'socialSecurityDeduction', 'attendanceBonus']
 
 function createEmployeeForm() {
   return {
@@ -22,11 +22,10 @@ function createEmployeeForm() {
 }
 
 function splitEmployeeData(form) {
-  const { employmentStatus, baseSalary, employmentDeposit, socialSecurityDeduction, attendanceBonus, ...employee } = form
+  const { baseSalary, employmentDeposit, socialSecurityDeduction, attendanceBonus, ...employee } = form
   return {
     employee,
     payroll: {
-      employmentStatus,
       baseSalary: Number(baseSalary) || 0,
       employmentDeposit: Number(employmentDeposit) || 0,
       socialSecurityDeduction: Number(socialSecurityDeduction) || 0,
@@ -43,15 +42,6 @@ function PayrollFields({ form, setForm }) {
     <section className="space-y-3 border-t border-ink/10 pt-4">
       <h3 className="font-semibold text-ink">ข้อมูลเงินเดือน</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-xs text-ink-soft">
-          สถานะการทำงาน
-          <select className="input-field" value={form.employmentStatus} onChange={(event) => update('employmentStatus', event.target.value)}>
-            <option value="">เลือกสถานะ</option>
-            <option value="intern">ฝึกงาน</option>
-            <option value="probation">ทดลองงาน</option>
-            <option value="permanent">บรรจุแล้ว</option>
-          </select>
-        </label>
         <label className="space-y-1 text-xs text-ink-soft">
           {salaryLabel}
           <input type="number" min="0" step="0.01" className="input-field" value={form.baseSalary} onChange={(event) => update('baseSalary', event.target.value)} placeholder="0.00" />
@@ -73,15 +63,30 @@ function PayrollFields({ form, setForm }) {
   )
 }
 
-function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave }) {
+function EmploymentStatusField({ value, onChange }) {
+  return (
+    <label className="space-y-1 text-xs text-ink-soft">
+      สถานะพนักงาน
+      <select className="input-field" value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">เลือกสถานะ</option>
+        <option value="permanent">บรรจุ</option>
+        <option value="probation">ทดลองงาน</option>
+        <option value="intern">ฝึกงาน</option>
+      </select>
+    </label>
+  )
+}
+
+function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
   const [editing, setEditing] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [form, setForm] = useState({
     name: emp.name,
     pin: emp.pin,
     department: emp.department || '',
     role: emp.role,
     gender: emp.gender || '',
-    employmentStatus: payrollProfile?.employmentStatus || '',
+    employmentStatus: emp.employmentStatus || payrollProfile?.employmentStatus || '',
     baseSalary: payrollProfile?.baseSalary == null ? '' : String(payrollProfile.baseSalary),
     employmentDeposit: String(payrollProfile?.employmentDeposit ?? 0),
     socialSecurityDeduction: String(payrollProfile?.socialSecurityDeduction ?? 0),
@@ -90,9 +95,32 @@ function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave
     balances: { ...(emp.balances || {}) },
   })
 
+  useEffect(() => {
+    if (editing) return
+    setForm({
+      name: emp.name,
+      pin: emp.pin,
+      department: emp.department || '',
+      role: emp.role,
+      gender: emp.gender || '',
+      employmentStatus: emp.employmentStatus || payrollProfile?.employmentStatus || '',
+      baseSalary: payrollProfile?.baseSalary == null ? '' : String(payrollProfile.baseSalary),
+      employmentDeposit: String(payrollProfile?.employmentDeposit ?? 0),
+      socialSecurityDeduction: String(payrollProfile?.socialSecurityDeduction ?? 0),
+      attendanceBonus: String(payrollProfile?.attendanceBonus ?? 0),
+      active: emp.active !== false,
+      balances: { ...(emp.balances || {}) },
+    })
+  }, [emp, payrollProfile, editing])
+
   async function save() {
-    await onSave(emp.id, form)
-    setEditing(false)
+    setSaveError('')
+    try {
+      const saved = await onSave(emp.id, form)
+      if (saved !== false) setEditing(false)
+    } catch (error) {
+      setSaveError(`บันทึกข้อมูลพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+    }
   }
 
   if (!editing) {
@@ -107,10 +135,10 @@ function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave
           <p className="text-xs text-ink-soft font-mono">
             PIN: {emp.pin} {emp.gender && `· ${GENDER_LABELS[emp.gender] || emp.gender}`}
           </p>
-          {canManagePayroll && <p className="mt-1 text-xs text-ink-soft">
-            {EMPLOYMENT_STATUS_LABELS[payrollProfile?.employmentStatus] || 'ยังไม่ระบุสถานะ'}
-            {payrollProfile?.baseSalary > 0 && ` · ${Number(payrollProfile.baseSalary).toLocaleString('th-TH')} บาท${payrollProfile.employmentStatus === 'permanent' ? '/เดือน' : '/วัน'}`}
-          </p>}
+          <p className="mt-1 text-xs text-ink-soft">
+            {EMPLOYMENT_STATUS_LABELS[emp.employmentStatus || payrollProfile?.employmentStatus] || 'ยังไม่ระบุสถานะ'}
+            {payrollProfile?.baseSalary > 0 && ` · ${Number(payrollProfile.baseSalary).toLocaleString('th-TH')} บาท${(emp.employmentStatus || payrollProfile.employmentStatus) === 'permanent' ? '/เดือน' : '/วัน'}`}
+          </p>
         </div>
         <button onClick={() => setEditing(true)} className="btn-secondary py-2 px-4 text-sm">
           แก้ไข
@@ -134,10 +162,11 @@ function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave
           <option value="female">หญิง</option>
           <option value="male">ชาย</option>
         </select>
+        <EmploymentStatusField value={form.employmentStatus} onChange={(employmentStatus) => setForm((current) => ({ ...current, employmentStatus }))} />
       </div>
       <p className="text-xs text-ink-soft -mt-1">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
 
-      {canManagePayroll && <PayrollFields form={form} setForm={setForm} />}
+      <PayrollFields form={form} setForm={setForm} />
 
       <div>
         <p className="text-sm text-ink-soft mb-2">โควตาวันลาต่อปี (เว้นว่าง = ใช้ค่าเริ่มต้น)</p>
@@ -163,6 +192,8 @@ function EmployeeRow({ emp, payrollProfile, canManagePayroll, leaveTypes, onSave
         </div>
       </div>
 
+      {saveError && <p role="alert" className="text-sm text-clay">{saveError}</p>}
+
       <label className="flex items-center gap-2 text-sm text-ink-soft">
         <input type="checkbox" checked={form.active} onChange={(e) => setForm((f) => ({ ...f, active: e.target.checked }))} />
         เปิดใช้งานบัญชีนี้
@@ -187,66 +218,42 @@ export default function AdminEmployees() {
   const [showAdd, setShowAdd] = useState(false)
   const [newEmp, setNewEmp] = useState(createEmployeeForm)
   const [error, setError] = useState('')
-  const [payrollAccessError, setPayrollAccessError] = useState('')
-  const [canManagePayroll, setCanManagePayroll] = useState(false)
+  const [payrollError, setPayrollError] = useState('')
   const [payrollProfilesLoaded, setPayrollProfilesLoaded] = useState(false)
   const migrationStarted = useRef(false)
 
   useEffect(() => {
-    let active = true
-    let unsubEmployees
-    let unsubLeaveTypes
-    let unsubPayrollProfiles
-
-    async function subscribeAdminData() {
-      unsubEmployees = onSnapshot(
-        collection(db, 'employees'),
-        (snap) => setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th'))),
-        () => setError('โหลดข้อมูลพนักงานไม่สำเร็จ')
-      )
-      unsubLeaveTypes = onSnapshot(collection(db, 'leaveTypes'), (snap) =>
-        setLeaveTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
-      )
-
-      const allowlist = await getDoc(doc(db, 'meta', 'payrollAdmins'))
-      const allowed = allowlist.data()?.uids?.includes(auth?.currentUser?.uid)
-      if (!active) return
-      if (!allowed) {
-        setPayrollProfilesLoaded(true)
-        setPayrollAccessError('บัญชีนี้ยังไม่มีสิทธิ์จัดการข้อมูลเงินเดือน รายชื่อพนักงานยังใช้งานได้ตามปกติ')
-        return
-      }
-      setCanManagePayroll(true)
-      unsubPayrollProfiles = onSnapshot(collection(db, 'payrollProfiles'), (snap) => {
-        setPayrollProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        setPayrollProfilesLoaded(true)
-        setPayrollAccessError('')
-      }, () => {
-        setPayrollProfilesLoaded(true)
-        setPayrollAccessError('อ่านข้อมูลเงินเดือนไม่ได้ กรุณาตรวจ Firestore Rules')
-      })
-    }
-
-    subscribeAdminData().catch(() => {
-      if (!active) return
+    const unsubscribeEmployees = onSnapshot(collection(db, 'employees'), (snap) =>
+      setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th'))),
+    () => setError('โหลดข้อมูลพนักงานไม่สำเร็จ'))
+    const unsubscribeLeaveTypes = onSnapshot(collection(db, 'leaveTypes'), (snap) =>
+      setLeaveTypes(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)))
+    )
+    const unsubscribePayrollProfiles = onSnapshot(collection(db, 'payrollProfiles'), (snap) => {
+      setPayrollProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setPayrollProfilesLoaded(true)
-      setPayrollAccessError('ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาตรวจการเชื่อมต่อ Firebase')
+      setPayrollError('')
+    }, (error) => {
+      setPayrollProfilesLoaded(true)
+      setPayrollError(`โหลดข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
     })
     return () => {
-      active = false
-      unsubEmployees?.()
-      unsubLeaveTypes?.()
-      unsubPayrollProfiles?.()
+      unsubscribeEmployees()
+      unsubscribeLeaveTypes()
+      unsubscribePayrollProfiles()
     }
   }, [])
 
   useEffect(() => {
-    if (!canManagePayroll || !payrollProfilesLoaded || migrationStarted.current) return
-    const employeesToMigrate = employees.filter((employee) => employee.payrollProfileReady !== true)
+    if (!payrollProfilesLoaded || migrationStarted.current) return
+    const profilesById = new Map(payrollProfiles.map((profile) => [profile.id, profile]))
+    const employeesToMigrate = employees.filter((employee) =>
+      PAYROLL_FIELDS.some((field) => Object.hasOwn(employee, field))
+      || (!employee.employmentStatus && profilesById.get(employee.id)?.employmentStatus)
+    )
     if (employeesToMigrate.length === 0) return
 
     migrationStarted.current = true
-    const profilesById = new Map(payrollProfiles.map((profile) => [profile.id, profile]))
     const batches = []
     let batch = writeBatch(db)
     let operationCount = 0
@@ -257,8 +264,9 @@ export default function AdminEmployees() {
         batch.set(doc(db, 'payrollProfiles', employee.id), payroll)
         operationCount++
       }
+      const employmentStatus = employee.employmentStatus || profilesById.get(employee.id)?.employmentStatus
       batch.update(doc(db, 'employees', employee.id), {
-        payrollProfileReady: true,
+        ...(employmentStatus ? { employmentStatus } : {}),
         ...Object.fromEntries(PAYROLL_FIELDS.map((field) => [field, deleteField()])),
       })
       operationCount++
@@ -269,25 +277,23 @@ export default function AdminEmployees() {
       }
     })
     if (operationCount > 0) batches.push(batch.commit())
-    Promise.all(batches).catch(() => {
+    Promise.all(batches).catch((error) => {
       migrationStarted.current = false
-      setPayrollAccessError('ย้ายข้อมูลเงินเดือนเดิมไม่สำเร็จ กรุณาตรวจสิทธิ์ Firestore Rules')
+      setPayrollError(`ย้ายข้อมูลเงินเดือนเดิมไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
     })
-  }, [employees, payrollProfiles, payrollProfilesLoaded, canManagePayroll])
+  }, [employees, payrollProfiles, payrollProfilesLoaded])
 
   async function saveEmployee(id, form) {
     const { employee, payroll } = splitEmployeeData(form)
-    if (!canManagePayroll) {
-      await updateDoc(doc(db, 'employees', id), employee)
-      return
+    await updateDoc(doc(db, 'employees', id), employee)
+    try {
+      await setDoc(doc(db, 'payrollProfiles', id), payroll, { merge: true })
+      setPayrollError('')
+      return true
+    } catch (error) {
+      setPayrollError(`บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+      return false
     }
-    const batch = writeBatch(db)
-    batch.update(doc(db, 'employees', id), {
-      ...employee,
-      ...Object.fromEntries(PAYROLL_FIELDS.map((field) => [field, deleteField()])),
-    })
-    batch.set(doc(db, 'payrollProfiles', id), payroll, { merge: true })
-    await batch.commit()
   }
 
   async function addEmployee(e) {
@@ -302,28 +308,24 @@ export default function AdminEmployees() {
       return
     }
     const { employee, payroll } = splitEmployeeData(newEmp)
-    if (!canManagePayroll) {
-      await addDoc(collection(db, 'employees'), {
+    let employeeRef
+    try {
+      employeeRef = await addDoc(collection(db, 'employees'), {
         ...employee,
         active: true,
         balances: {},
         createdAt: serverTimestamp(),
       })
-      setNewEmp(createEmployeeForm())
-      setShowAdd(false)
+    } catch (error) {
+      setError(`บันทึกพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
       return
     }
-    const employeeRef = doc(collection(db, 'employees'))
-    const batch = writeBatch(db)
-    batch.set(employeeRef, {
-      ...employee,
-      active: true,
-      payrollProfileReady: true,
-      balances: {},
-      createdAt: serverTimestamp(),
-    })
-    batch.set(doc(db, 'payrollProfiles', employeeRef.id), payroll)
-    await batch.commit()
+    try {
+      await setDoc(doc(db, 'payrollProfiles', employeeRef.id), payroll)
+      setPayrollError('')
+    } catch (error) {
+      setPayrollError(`บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+    }
     setNewEmp(createEmployeeForm())
     setShowAdd(false)
   }
@@ -337,13 +339,7 @@ export default function AdminEmployees() {
         </button>
       </div>
 
-      <section className="space-y-2 border-y border-ink/10 py-4 text-sm">
-        <p className="font-semibold text-ink">สิทธิ์ข้อมูลเงินเดือนของบัญชีนี้</p>
-        <p className="text-xs text-ink-soft">เพิ่ม UID นี้ในเอกสาร Firestore <span className="font-mono">meta/payrollAdmins</span> ในฟิลด์ <span className="font-mono">uids</span> (array) แล้วเผยแพร่ Firestore Rules เพื่อเปิดสิทธิ์เงินเดือน รายชื่อและข้อมูลพนักงานทั่วไปใช้ได้ตามปกติ</p>
-        <code className="block break-all rounded bg-ink/5 p-2 font-mono text-xs">{auth?.currentUser?.uid || 'กำลังโหลด Firebase UID...'}</code>
-      </section>
-
-      {payrollAccessError && <p role="alert" className="text-sm text-clay">{payrollAccessError}</p>}
+      {payrollError && <p role="alert" className="text-sm text-clay">{payrollError}</p>}
 
       {showAdd && (
         <form onSubmit={addEmployee} className="card p-4 space-y-3">
@@ -360,9 +356,10 @@ export default function AdminEmployees() {
               <option value="female">หญิง</option>
               <option value="male">ชาย</option>
             </select>
+            <EmploymentStatusField value={newEmp.employmentStatus} onChange={(employmentStatus) => setNewEmp((current) => ({ ...current, employmentStatus }))} />
           </div>
           <p className="text-xs text-ink-soft">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
-          {canManagePayroll && <PayrollFields form={newEmp} setForm={setNewEmp} />}
+          <PayrollFields form={newEmp} setForm={setNewEmp} />
           {error && <p className="text-clay text-sm">{error}</p>}
           <button className="btn-primary py-2 px-4 text-sm">บันทึกพนักงานใหม่</button>
         </form>
@@ -370,7 +367,7 @@ export default function AdminEmployees() {
 
       <div className="space-y-3">
         {employees.map((emp) => (
-          <EmployeeRow key={emp.id} emp={emp} payrollProfile={payrollProfiles.find((profile) => profile.id === emp.id)} canManagePayroll={canManagePayroll} leaveTypes={leaveTypes} onSave={saveEmployee} />
+          <EmployeeRow key={emp.id} emp={emp} payrollProfile={payrollProfiles.find((profile) => profile.id === emp.id)} leaveTypes={leaveTypes} onSave={saveEmployee} />
         ))}
       </div>
     </div>

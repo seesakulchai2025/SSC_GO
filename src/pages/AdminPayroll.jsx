@@ -51,7 +51,7 @@ export default function AdminPayroll() {
         setPayrollProfilesLoaded(true)
       },
       () => {
-        setError('ไม่มีสิทธิ์อ่านข้อมูลเงินเดือน กรุณาเพิ่ม Firebase UID ในหน้า พนักงาน และเผยแพร่ Firestore Rules')
+        setError('โหลดข้อมูลเงินเดือนไม่สำเร็จ กรุณาตรวจ Firestore Rules และการเชื่อมต่อ')
         setPayrollProfilesLoaded(true)
       }
     )
@@ -130,7 +130,7 @@ export default function AdminPayroll() {
         return total + (Number(checkInLate) || 0)
       }, 0)
       const payrollProfile = payrollProfileByEmployee.get(employee.id) || {}
-      const employmentStatus = payrollProfile.employmentStatus || ''
+      const employmentStatus = employee.employmentStatus || payrollProfile.employmentStatus || ''
       const baseSalary = Number(payrollProfile.baseSalary) || 0
       const dailyWage = employmentStatus === 'intern' || employmentStatus === 'probation'
       const savedWorkDays = payrollByEmployee.get(employee.id)?.workDays
