@@ -7,8 +7,8 @@ import ProfileModal from './ProfileModal'
 
 const ADMIN_NAV_ITEMS = [
   { to: '/admin', end: true, label: 'อนุมัติ', badge: 'pending' },
-  { to: '/admin/add-leave', end: false, label: 'ลงวันลาให้พนักงาน' },
   { to: '/admin/employees', end: false, label: 'พนักงาน' },
+  { to: '/admin/payroll', end: false, label: 'เงินเดือน' },
 ]
 
 function Badge({ count }) {
@@ -46,6 +46,11 @@ export default function Navbar() {
           <Badge count={badgeFor('unseen')} />
         </NavLink>
         <NavLink to="/attendance" className={linkClass} onClick={() => handleNavigation('/attendance')}>ลงเวลาเข้างาน</NavLink>
+        {isAdmin && (
+          <NavLink to="/admin/add-leave" className={linkClass} onClick={() => handleNavigation('/admin/add-leave')}>
+            ลงวันลาให้พนักงาน
+          </NavLink>
+        )}
 
         {isAdmin && (
           <>
@@ -82,7 +87,7 @@ export default function Navbar() {
     <>
       <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-ink/10 bg-paper lg:flex">
         <div className="border-b border-ink/10 px-5 py-5">
-          <p className="font-display text-xl font-semibold text-ink">ใบลา</p>
+          <p className="font-display text-base font-semibold text-ink">ระบบพนักงานสีสกุลไชย</p>
           <p className="mt-1 text-xs text-ink-soft">ระบบงานพนักงาน</p>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
@@ -100,7 +105,7 @@ export default function Navbar() {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <span className="truncate font-display font-semibold text-ink">ใบลา</span>
+          <span className="truncate font-display font-semibold text-ink">ระบบพนักงานสีสกุลไชย</span>
         </div>
         <button onClick={() => setShowProfile(true)} className="max-w-[45%] truncate text-sm text-ink-soft underline decoration-dotted">
           {employee?.name}
@@ -113,7 +118,7 @@ export default function Navbar() {
           <aside onClick={(event) => event.stopPropagation()} className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-paper shadow-stamp">
             <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
               <div>
-                <p className="font-display text-lg font-semibold text-ink">ใบลา</p>
+                <p className="font-display text-base font-semibold text-ink">ระบบพนักงานสีสกุลไชย</p>
                 <p className="mt-1 max-w-52 truncate text-xs text-ink-soft">{employee?.name}</p>
               </div>
               <button onClick={() => setMenuOpen(false)} className="p-2 text-xl leading-none text-ink-soft" aria-label="ปิดเมนู">×</button>

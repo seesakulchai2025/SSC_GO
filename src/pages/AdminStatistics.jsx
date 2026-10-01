@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import LeaveBalanceCard from '../components/LeaveBalanceCard'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
@@ -10,7 +10,7 @@ export default function AdminStatistics() {
   const [requests, setRequests] = useState([])
 
   useEffect(() => {
-    const unsub1 = onSnapshot(collection(db, 'employees'), (snap) =>
+    const unsub1 = onSnapshot(query(collection(db, 'employees'), where('payrollProfileReady', '==', true)), (snap) =>
       setEmployees(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     )
     const unsub2 = onSnapshot(collection(db, 'leaveTypes'), (snap) =>

@@ -1,9 +1,16 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
-import { db, ensureAnonymousSession, FIXED_LEAVE_TYPES } from '../firebase'
+import { signOut } from 'firebase/auth'
+import { collection, query, where, getDocs, getDoc, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { auth, db, ensureAnonymousSession, FIXED_LEAVE_TYPES } from '../firebase'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = 'leave-tracker-employee-id'
+
+async function isPayrollAdminUid() {
+  if (!auth?.currentUser) return false
+  const allowlist = await getDoc(doc(db, 'meta', 'payrollAdmins'))
+  return allowlist.data()?.uids?.includes(auth.currentUser.uid) || false
+}
 
 export function AuthProvider({ children }) {
   const [employee, setEmployee] = useState(null)
@@ -15,9 +22,13 @@ export function AuthProvider({ children }) {
     async function init() {
       try {
         await ensureAnonymousSession()
-        const snap = await getDocs(collection(db, 'employees'))
+        const employeeQuery = await isPayrollAdminUid()
+          ? collection(db, 'employees')
+          : query(collection(db, 'employees'), where('payrollProfileReady', '==', true))
+        const snap = await getDocs(employeeQuery)
         if (snap.empty) {
-          setNeedsSetup(true)
+          const payrollAllowlist = await getDoc(doc(db, 'meta', 'payrollAdmins'))
+          setNeedsSetup(!payrollAllowlist.exists())
           return
         }
         const savedId = localStorage.getItem(STORAGE_KEY)
@@ -40,9 +51,12 @@ export function AuthProvider({ children }) {
 
   const loginWithPin = useCallback(async (pin) => {
     await ensureAnonymousSession()
-    const q = query(collection(db, 'employees'), where('pin', '==', pin))
+    const employeeQuery = await isPayrollAdminUid()
+      ? collection(db, 'employees')
+      : query(collection(db, 'employees'), where('payrollProfileReady', '==', true))
+    const q = employeeQuery
     const snap = await getDocs(q)
-    const match = snap.docs.find((d) => d.data().active !== false)
+    const match = snap.docs.find((d) => d.data().pin === pin && d.data().active !== false)
     if (!match) {
       throw new Error('ไม่พบ PIN นี้ในระบบ หรือบัญชีถูกระงับการใช้งาน')
     }
@@ -52,13 +66,18 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
-  const logout = useCallback(() => {
-    setEmployee(null)
+  const logout = useCallback(async () => {
     localStorage.removeItem(STORAGE_KEY)
+    if (auth?.currentUser) await signOut(auth)
+    setEmployee(null)
   }, [])
 
   const createFirstAdmin = useCallback(async ({ name, pin, setupPin }) => {
     await ensureAnonymousSession()
+    const payrollAllowlist = await getDoc(doc(db, 'meta', 'payrollAdmins'))
+    if (payrollAllowlist.exists()) {
+      throw new Error('ระบบตั้งค่าแล้ว กรุณาเข้าสู่ระบบด้วย PIN ของคุณ')
+    }
     if (setupPin !== import.meta.env.VITE_SETUP_PIN) {
       throw new Error('รหัสตั้งค่าระบบไม่ถูกต้อง')
     }
@@ -68,6 +87,7 @@ export function AuthProvider({ children }) {
       role: 'admin',
       department: 'ผู้ดูแลระบบ',
       active: true,
+      payrollProfileReady: true,
       balances: {},
       createdAt: serverTimestamp(),
     })
@@ -96,8 +116,11 @@ export function AuthProvider({ children }) {
     if (!name.trim()) {
       throw new Error('กรุณากรอกชื่อ-นามสกุล')
     }
-    const existing = await getDocs(query(collection(db, 'employees'), where('pin', '==', pin)))
-    if (!existing.empty) {
+    const employeeQuery = await isPayrollAdminUid()
+      ? collection(db, 'employees')
+      : query(collection(db, 'employees'), where('payrollProfileReady', '==', true))
+    const existing = await getDocs(employeeQuery)
+    if (existing.docs.some((item) => item.data().pin === pin)) {
       throw new Error('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
     }
     const docRef = await addDoc(collection(db, 'employees'), {
@@ -107,10 +130,11 @@ export function AuthProvider({ children }) {
       department: department || '',
       gender: '',
       active: true,
+      payrollProfileReady: true,
       balances: {},
       createdAt: serverTimestamp(),
     })
-    const data = { id: docRef.id, name: name.trim(), pin, role: 'employee', department: department || '', gender: '', active: true, balances: {} }
+    const data = { id: docRef.id, name: name.trim(), pin, role: 'employee', department: department || '', gender: '', active: true, payrollProfileReady: true, balances: {} }
     setEmployee(data)
     localStorage.setItem(STORAGE_KEY, docRef.id)
     return data
@@ -120,8 +144,11 @@ export function AuthProvider({ children }) {
   const updateOwnProfile = useCallback(
     async ({ name, department, pin, signature }) => {
       if (pin !== employee.pin) {
-        const dup = await getDocs(query(collection(db, 'employees'), where('pin', '==', pin)))
-        if (dup.docs.some((d) => d.id !== employee.id)) {
+        const employeeQuery = await isPayrollAdminUid()
+          ? collection(db, 'employees')
+          : query(collection(db, 'employees'), where('payrollProfileReady', '==', true))
+        const dup = await getDocs(employeeQuery)
+        if (dup.docs.some((d) => d.id !== employee.id && d.data().pin === pin)) {
           throw new Error('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
         }
       }

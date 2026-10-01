@@ -1,6 +1,6 @@
 {
-  "name": "ระบบลงเวลาลา",
-  "short_name": "ใบลา",
+  "name": "ระบบพนักงานสีสกุลไชย",
+  "short_name": "ระบบพนักงานสีสกุลไชย",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAF7EF",

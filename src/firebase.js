@@ -25,6 +25,7 @@ const firebaseConfig = {
 }
 
 export const app = missingFirebaseConfig.length === 0 ? initializeApp(firebaseConfig) : null
+export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
 
 // ประเภทการลาที่ระบบรองรับ — กำหนดตายตัวไว้ 3 ประเภทเท่านั้น
@@ -43,7 +44,6 @@ export async function ensureAnonymousSession() {
   if (!app) {
     throw new Error(`ตั้งค่า Firebase ไม่ครบ: ${missingFirebaseConfig.join(', ')}`)
   }
-  const auth = getAuth(app)
   if (!auth.currentUser) {
     await signInAnonymously(auth)
   }

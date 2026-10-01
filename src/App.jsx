@@ -9,6 +9,7 @@ import AdminEmployees from './pages/AdminEmployees'
 import AdminLeaveTypes from './pages/AdminLeaveTypes'
 import AdminStatistics from './pages/AdminStatistics'
 import AdminAddLeave from './pages/AdminAddLeave'
+import AdminPayroll from './pages/AdminPayroll'
 import AdminHolidays from './pages/AdminHolidays'
 import AdminReportCenter from './pages/AdminReportCenter'
 import TeamCalendar from './pages/TeamCalendar'
@@ -78,6 +79,14 @@ function Shell() {
             element={
               <RequireAdmin>
                 <AdminAddLeave />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/payroll"
+            element={
+              <RequireAdmin>
+                <AdminPayroll />
               </RequireAdmin>
             }
           />

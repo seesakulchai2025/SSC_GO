@@ -181,7 +181,7 @@ export default function PinLogin() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-paper">
       <div className="card w-full max-w-xs p-8 text-center">
-        <p className="font-mono text-xs tracking-widest text-brass-dark uppercase mb-1">ระบบลงเวลาลา</p>
+        <p className="font-mono text-xs tracking-widest text-brass-dark uppercase mb-1">ระบบพนักงานสีสกุลไชย</p>
         <h1 className="font-display text-xl font-semibold text-ink mb-2">กรอก PIN เพื่อเข้าสู่ระบบ</h1>
         <PinDots value={pin} />
         {error && <p className="text-clay text-sm mb-3">{error}</p>}
