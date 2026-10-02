@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { notifyError, notifySuccess } from './ToastViewport'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del']
 
@@ -74,9 +75,11 @@ export default function PinLogin() {
     setError('')
     try {
       await loginWithPin(pin)
+      notifySuccess('เข้าสู่ระบบสำเร็จ')
     } catch (e) {
       setError(e.message)
       setPin('')
+      notifyError(e.message || 'เข้าสู่ระบบไม่สำเร็จ')
     } finally {
       setBusy(false)
     }
@@ -88,8 +91,10 @@ export default function PinLogin() {
     setError('')
     try {
       await createFirstAdmin({ name: setupName, pin: setupPinCode, setupPin: setupGateCode })
+      notifySuccess('สร้างบัญชีแอดมินเรียบร้อยแล้ว')
     } catch (e2) {
       setError(e2.message)
+      notifyError(e2.message || 'สร้างบัญชีแอดมินไม่สำเร็จ')
     } finally {
       setBusy(false)
     }
@@ -101,8 +106,10 @@ export default function PinLogin() {
     setError('')
     try {
       await registerSelf({ name: regName, department: regDepartment, pin: regPin, companyCode: regCode })
+      notifySuccess('ลงทะเบียนพนักงานเรียบร้อยแล้ว')
     } catch (e2) {
       setError(e2.message)
+      notifyError(e2.message || 'ลงทะเบียนไม่สำเร็จ')
     } finally {
       setBusy(false)
     }

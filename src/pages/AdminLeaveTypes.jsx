@@ -1,6 +1,41 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
+
+function LeaveTypeRow({ type, onSave }) {
+  const [days, setDays] = useState(String(type.defaultDays ?? 0))
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => setDays(String(type.defaultDays ?? 0)), [type.defaultDays])
+
+  async function save() {
+    const nextDays = Number(days)
+    if (!Number.isFinite(nextDays) || nextDays < 0) {
+      setDays(String(type.defaultDays ?? 0))
+      notifyError('จำนวนวันโควตาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
+      return
+    }
+    if (nextDays === Number(type.defaultDays ?? 0)) return
+    setSaving(true)
+    try {
+      await onSave(type.id, { defaultDays: nextDays })
+      notifySuccess(`บันทึกโควตา${type.name}แล้ว`)
+    } catch (error) {
+      notifyError(`บันทึกโควตาไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="card flex items-center gap-3 p-4">
+      <p className="flex-1 font-display font-semibold text-ink">{type.name}</p>
+      <input type="number" min={0} step={1} className="input-field w-24" value={days} disabled={saving} onChange={(event) => setDays(event.target.value)} onBlur={save} onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }} />
+      <span className="shrink-0 text-xs text-ink-soft">วัน/ปี</span>
+    </div>
+  )
+}
 
 export default function AdminLeaveTypes() {
   const [types, setTypes] = useState([])
@@ -25,17 +60,7 @@ export default function AdminLeaveTypes() {
 
       <div className="space-y-3">
         {types.map((t) => (
-          <div key={t.id} className="card p-4 flex items-center gap-3">
-            <p className="font-display font-semibold text-ink flex-1">{t.name}</p>
-            <input
-              type="number"
-              min={0}
-              className="input-field w-24"
-              value={t.defaultDays ?? 0}
-              onChange={(e) => updateType(t.id, { defaultDays: Number(e.target.value) })}
-            />
-            <span className="text-xs text-ink-soft shrink-0">วัน/ปี</span>
-          </div>
+          <LeaveTypeRow key={t.id} type={t} onSave={updateType} />
         ))}
       </div>
 

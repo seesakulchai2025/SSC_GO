@@ -3,6 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcDaysWithDuration, formatThaiDate, formatThaiDateLong, DURATION_LABELS, todayISO } from '../utils/dateUtils'
 import { useHolidays } from '../context/HolidaysContext'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const STATUS_OPTIONS = [
   { id: 'approved', label: 'อนุมัติแล้วเท่านั้น' },
@@ -179,8 +180,9 @@ export default function AdminReports() {
   const STATUS_LABELS = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ', cancelled: 'ยกเลิกแล้ว' }
 
   async function handleExportExcel() {
-    const XLSX = await import('xlsx')
-    const rows = filtered.map((r, i) => ({
+    try {
+      const XLSX = await import('xlsx')
+      const rows = filtered.map((r, i) => ({
       ลำดับ: i + 1,
       ชื่อพนักงาน: r.employeeName,
       แผนก: r.department || '',
@@ -193,11 +195,15 @@ export default function AdminReports() {
       รายละเอียด: r.reason || '',
       ผู้อนุมัติ: r.reviewedBy || '',
       หมายเหตุ: r.reviewNote || '',
-    }))
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'รายงานวันลา')
-    XLSX.writeFile(wb, `รายงานวันลา_${dateFrom}_ถึง_${dateTo}.xlsx`)
+      }))
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'รายงานวันลา')
+      XLSX.writeFile(wb, `รายงานวันลา_${dateFrom}_ถึง_${dateTo}.xlsx`)
+      notifySuccess('ดาวน์โหลดรายงานวันลา Excel แล้ว')
+    } catch (error) {
+      notifyError(`ส่งออกรายงานวันลาไม่สำเร็จ (${error.message || 'unknown'})`)
+    }
   }
 
   return (
@@ -256,7 +262,7 @@ export default function AdminReports() {
         </div>
         <div className="flex flex-wrap gap-2 pt-2">
           <button onClick={handleExportExcel} className="btn-primary py-2 px-4 text-sm">⬇ ส่งออกเป็น Excel</button>
-          <button onClick={() => window.print()} className="btn-secondary py-2 px-4 text-sm">🖨 พิมพ์ / บันทึกเป็น PDF</button>
+          <button onClick={() => { window.print(); notifySuccess('เปิดหน้าต่างพิมพ์หรือบันทึก PDF แล้ว') }} className="btn-secondary py-2 px-4 text-sm">🖨 พิมพ์ / บันทึกเป็น PDF</button>
         </div>
       </div>
 

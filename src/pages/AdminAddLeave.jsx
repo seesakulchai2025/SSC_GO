@@ -6,6 +6,7 @@ import { useHolidays } from '../context/HolidaysContext'
 import { calcDaysWithDuration, todayISO } from '../utils/dateUtils'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { fileToAttachment } from '../utils/attachmentStorage'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -58,14 +59,17 @@ export default function AdminAddLeave() {
     setError('')
     if (!selectedEmployee) {
       setError('กรุณาเลือกพนักงาน')
+      notifyError('กรุณาเลือกพนักงาน')
       return
     }
     if (!leaveTypeId) {
       setError('กรุณาเลือกประเภทการลา')
+      notifyError('กรุณาเลือกประเภทการลา')
       return
     }
     if (days <= 0) {
       setError('ช่วงวันที่ไม่ถูกต้อง')
+      notifyError('ช่วงวันที่ไม่ถูกต้อง')
       return
     }
 
@@ -98,12 +102,15 @@ export default function AdminAddLeave() {
         reviewNote: 'ลงบันทึกโดยแอดมิน',
       })
       setSuccess(true)
+      notifySuccess('บันทึกวันลาให้พนักงานเรียบร้อยแล้ว')
       setReason('')
       setFile(null)
       setDuration('full')
       setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
-      setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
+      const message = 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'
+      setError(message)
+      notifyError(message)
     } finally {
       setBusy(false)
     }

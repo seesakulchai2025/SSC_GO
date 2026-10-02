@@ -9,6 +9,7 @@ import AttachmentUploader from '../components/AttachmentUploader'
 import TodayLeaveCard from '../components/TodayLeaveCard'
 import PrintLeaveForm from './PrintLeaveForm'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 export default function EmployeeDashboard() {
   const { employee } = useAuth()
@@ -54,7 +55,12 @@ export default function EmployeeDashboard() {
 
   async function handleCancel(id) {
     if (!confirm('ยืนยันยกเลิกใบลานี้?')) return
-    await updateDoc(doc(db, 'leaveRequests', id), { status: 'cancelled' })
+    try {
+      await updateDoc(doc(db, 'leaveRequests', id), { status: 'cancelled' })
+      notifySuccess('ยกเลิกคำขอลาเรียบร้อยแล้ว')
+    } catch (error) {
+      notifyError(`ยกเลิกคำขอลาไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+    }
   }
 
   return (

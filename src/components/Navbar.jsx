@@ -46,6 +46,7 @@ export default function Navbar() {
           <Badge count={badgeFor('unseen')} />
         </NavLink>
         <NavLink to="/attendance" className={linkClass} onClick={() => handleNavigation('/attendance')}>ลงเวลาเข้างาน</NavLink>
+        <NavLink to="/vehicles" className={linkClass} onClick={() => handleNavigation('/vehicles')}>ใช้รถบริษัท</NavLink>
         {isAdmin && (
           <NavLink to="/admin/add-leave" className={linkClass} onClick={() => handleNavigation('/admin/add-leave')}>
             ลงวันลาให้พนักงาน
@@ -61,6 +62,8 @@ export default function Navbar() {
                 <Badge count={badgeFor(item.badge)} />
               </NavLink>
             ))}
+            <NavLink to="/admin/vehicles" className={linkClass} onClick={() => handleNavigation('/admin/vehicles')}>จัดการรถบริษัท</NavLink>
+            <NavLink to="/admin/vehicle-reports" className={linkClass} onClick={() => handleNavigation('/admin/vehicle-reports')}>รายงานใช้รถ</NavLink>
             <NavLink to="/calendar" end className={linkClass} onClick={() => handleNavigation('/calendar')}>ปฏิทิน</NavLink>
             <NavLink to="/admin/reports" className={linkClass} onClick={() => handleNavigation('/admin/reports')}>รายงาน</NavLink>
           </>

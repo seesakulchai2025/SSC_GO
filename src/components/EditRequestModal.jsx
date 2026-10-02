@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { calcDaysWithDuration } from '../utils/dateUtils'
 import { useHolidays } from '../context/HolidaysContext'
+import { notifyError, notifySuccess } from './ToastViewport'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -77,9 +78,11 @@ export default function EditRequestModal({ request, leaveTypes, onClose }) {
         next: nextValues,
       })
       await batch.commit()
+      notifySuccess('แก้ไขใบลาเรียบร้อยแล้ว')
       onClose()
     } catch (err) {
       setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
+      notifyError(err.message || 'แก้ไขใบลาไม่สำเร็จ')
     } finally {
       setBusy(false)
     }

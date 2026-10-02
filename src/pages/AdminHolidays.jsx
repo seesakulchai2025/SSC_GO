@@ -3,6 +3,7 @@ import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'fireb
 import { db } from '../firebase'
 import { formatThaiDate, formatThaiDateLong, todayISO } from '../utils/dateUtils'
 import { buildCompensatoryHolidays, fetchThaiPublicHolidays } from '../utils/holidaySync'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 export default function AdminHolidays() {
   const [holidays, setHolidays] = useState([])
@@ -29,23 +30,40 @@ export default function AdminHolidays() {
     setError('')
     if (!newName.trim()) {
       setError('กรุณาตั้งชื่อวันหยุด')
+      notifyError('กรุณาตั้งชื่อวันหยุด')
       return
     }
     if (holidays.some((h) => h.date === newDate)) {
       setError('มีวันหยุดของวันที่นี้อยู่แล้ว')
+      notifyError('มีวันหยุดของวันที่นี้อยู่แล้ว')
       return
     }
-    await addDoc(collection(db, 'holidays'), { date: newDate, name: newName.trim(), enabled: true, source: 'manual' })
-    setNewName('')
+    try {
+      await addDoc(collection(db, 'holidays'), { date: newDate, name: newName.trim(), enabled: true, source: 'manual' })
+      setNewName('')
+      notifySuccess('เพิ่มวันหยุดเรียบร้อยแล้ว')
+    } catch (saveError) {
+      notifyError(`เพิ่มวันหยุดไม่สำเร็จ (${saveError.code || saveError.message || 'unknown'})`)
+    }
   }
 
   async function toggleHoliday(h) {
-    await updateDoc(doc(db, 'holidays', h.id), { enabled: !(h.enabled !== false) })
+    try {
+      await updateDoc(doc(db, 'holidays', h.id), { enabled: !(h.enabled !== false) })
+      notifySuccess(h.enabled === false ? 'เปิดใช้งานวันหยุดแล้ว' : 'ปิดใช้งานวันหยุดแล้ว')
+    } catch (saveError) {
+      notifyError(`เปลี่ยนสถานะวันหยุดไม่สำเร็จ (${saveError.code || saveError.message || 'unknown'})`)
+    }
   }
 
   async function removeHoliday(h) {
     if (!confirm(`ลบวันหยุด "${h.name}" (${formatThaiDate(h.date)})?`)) return
-    await deleteDoc(doc(db, 'holidays', h.id))
+    try {
+      await deleteDoc(doc(db, 'holidays', h.id))
+      notifySuccess('ลบวันหยุดเรียบร้อยแล้ว')
+    } catch (deleteError) {
+      notifyError(`ลบวันหยุดไม่สำเร็จ (${deleteError.code || deleteError.message || 'unknown'})`)
+    }
   }
 
   async function handleSync() {
@@ -70,8 +88,10 @@ export default function AdminHolidays() {
         added++
       }
       setSyncMsg(added > 0 ? `ดึงวันหยุดใหม่มาเพิ่ม ${added} วันเรียบร้อย` : 'ไม่มีวันหยุดใหม่ที่ต้องเพิ่ม (มีอยู่แล้วทั้งหมด)')
+      notifySuccess(added > 0 ? `เพิ่มวันหยุดใหม่ ${added} วันแล้ว` : 'วันหยุดของปีนี้เป็นปัจจุบันแล้ว')
     } catch (err) {
       setSyncMsg('ดึงข้อมูลจากอินเทอร์เน็ตไม่สำเร็จ ลองใหม่อีกครั้ง หรือเพิ่มด้วยตนเองด้านล่าง')
+      notifyError(`ดึงวันหยุดไม่สำเร็จ (${err.message || 'unknown'})`)
     } finally {
       setSyncing(false)
     }
@@ -87,8 +107,10 @@ export default function AdminHolidays() {
         await addDoc(collection(db, 'holidays'), holiday)
       }
       setCompensatoryMsg(generated.length > 0 ? `เพิ่มวันหยุดชดเชย ${generated.length} วันแล้ว` : 'ไม่พบวันหยุดวันอาทิตย์ที่ต้องชดเชย หรือมีวันชดเชยครบแล้ว')
+      notifySuccess(generated.length > 0 ? `เพิ่มวันหยุดชดเชย ${generated.length} วันแล้ว` : 'ไม่มีวันหยุดชดเชยที่ต้องเพิ่ม')
     } catch (err) {
       setCompensatoryMsg('สร้างวันหยุดชดเชยไม่สำเร็จ ลองใหม่อีกครั้ง')
+      notifyError(`สร้างวันหยุดชดเชยไม่สำเร็จ (${err.message || 'unknown'})`)
     } finally {
       setGeneratingCompensatory(false)
     }

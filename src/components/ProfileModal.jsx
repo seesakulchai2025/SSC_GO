@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import SignaturePad from './SignaturePad'
+import { notifyError, notifySuccess } from './ToastViewport'
 
 export default function ProfileModal({ onClose }) {
   const { employee, updateOwnProfile } = useAuth()
@@ -17,19 +18,24 @@ export default function ProfileModal({ onClose }) {
     setError('')
     if (!name.trim()) {
       setError('กรุณากรอกชื่อ-นามสกุล')
+      notifyError('กรุณากรอกชื่อ-นามสกุล')
       return
     }
     if (pin.length < 4) {
       setError('PIN ต้องมีอย่างน้อย 4 หลัก')
+      notifyError('PIN ต้องมีอย่างน้อย 4 หลัก')
       return
     }
     setBusy(true)
     try {
       await updateOwnProfile({ name, department, pin, signature })
       setSuccess(true)
+      notifySuccess('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว')
       setTimeout(() => setSuccess(false), 2000)
     } catch (err) {
-      setError(err.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
+      const message = err.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'
+      setError(message)
+      notifyError(message)
     } finally {
       setBusy(false)
     }

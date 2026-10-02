@@ -6,6 +6,7 @@ import LeaveHistoryList from '../components/LeaveHistoryList'
 import EditRequestModal from '../components/EditRequestModal'
 import LeaveEditHistoryModal from '../components/LeaveEditHistoryModal'
 import PrintLeaveForm from './PrintLeaveForm'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const STATUS_OPTIONS = [
   { id: 'pending', label: 'รออนุมัติ' },
@@ -50,22 +51,33 @@ export default function AdminDashboard() {
     const note = noteDrafts[id] || ''
     if (status === 'rejected' && !note.trim()) {
       setRowError((s) => ({ ...s, [id]: 'กรุณาระบุเหตุผลที่ไม่อนุมัติ' }))
+      notifyError('กรุณาระบุเหตุผลที่ไม่อนุมัติ')
       return
     }
     setRowError((s) => ({ ...s, [id]: '' }))
-    await updateDoc(doc(db, 'leaveRequests', id), {
-      status,
-      reviewedBy: employee.name,
-      reviewedById: employee.id,
-      reviewedAt: serverTimestamp(),
-      reviewNote: note,
-    })
+    try {
+      await updateDoc(doc(db, 'leaveRequests', id), {
+        status,
+        reviewedBy: employee.name,
+        reviewedById: employee.id,
+        reviewedAt: serverTimestamp(),
+        reviewNote: note,
+      })
+      notifySuccess(status === 'approved' ? 'อนุมัติคำขอลาเรียบร้อยแล้ว' : 'บันทึกผลไม่อนุมัติเรียบร้อยแล้ว')
+    } catch (error) {
+      notifyError(`บันทึกผลคำขอลาไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+    }
   }
 
   async function handleDelete(id, r) {
     const label = `${r.employeeName} · ${r.leaveTypeName} (${r.startDate})`
     if (!confirm(`ยืนยันการลบใบลานี้?\n${label}\n\nการลบไม่สามารถกู้คืนได้`)) return
-    await deleteDoc(doc(db, 'leaveRequests', id))
+    try {
+      await deleteDoc(doc(db, 'leaveRequests', id))
+      notifySuccess('ลบรายการลาเรียบร้อยแล้ว')
+    } catch (error) {
+      notifyError(`ลบรายการลาไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+    }
   }
 
   function clearFilters() {

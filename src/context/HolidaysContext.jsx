@@ -3,6 +3,7 @@ import { collection, onSnapshot, doc, getDoc, getDocs, setDoc, addDoc } from 'fi
 import { db } from '../firebase'
 import { useAuth } from './AuthContext'
 import { buildCompensatoryHolidays, fetchThaiPublicHolidays } from '../utils/holidaySync'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const HolidaysContext = createContext(null)
 
@@ -37,6 +38,7 @@ export function HolidaysProvider({ children }) {
         const existingSnap = await getDocs(collection(db, 'holidays'))
         const existingHolidays = existingSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
         const existingDates = new Set(existingHolidays.map((h) => h.date))
+        let addedCount = 0
 
         for (const year of yearsToPrepare) {
           let fetched = []
@@ -45,6 +47,7 @@ export function HolidaysProvider({ children }) {
               fetched = await fetchThaiPublicHolidays(year)
             } catch (err) {
               console.warn(`Holiday sync failed for ${year}`, err)
+              notifyError(`ดึงวันหยุดปี ${year} ไม่สำเร็จ (${err.message || 'unknown'})`)
             }
           }
           for (const h of fetched) {
@@ -53,6 +56,7 @@ export function HolidaysProvider({ children }) {
             await addDoc(collection(db, 'holidays'), holiday)
             existingHolidays.push(holiday)
             existingDates.add(h.date)
+            addedCount++
           }
           const compensatory = buildCompensatoryHolidays([...existingHolidays, ...fetched.map((h) => ({ ...h, source: 'auto' }))], year)
           for (const holiday of compensatory) {
@@ -60,14 +64,17 @@ export function HolidaysProvider({ children }) {
             await addDoc(collection(db, 'holidays'), holiday)
             existingHolidays.push(holiday)
             existingDates.add(holiday.date)
+            addedCount++
           }
         }
         if (yearsToSync.length > 0) {
           await setDoc(metaRef, { syncedYears: [...syncedYears, ...yearsToSync] }, { merge: true })
         }
+        if (addedCount > 0) notifySuccess(`ซิงก์วันหยุดอัตโนมัติ ${addedCount} วันแล้ว`)
       } catch (err) {
         // ดึงข้อมูลไม่สำเร็จก็ไม่เป็นไร — แอดมินยังเพิ่ม/แก้ไขวันหยุดเองที่หน้า "วันหยุด" ได้ตามปกติ
         console.warn('Holiday auto-sync failed', err)
+        notifyError(`ซิงก์วันหยุดอัตโนมัติไม่สำเร็จ (${err.code || err.message || 'unknown'})`)
       }
     }
     autoSync()

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { fileToAttachment } from '../utils/attachmentStorage'
+import { notifyError, notifySuccess } from './ToastViewport'
 
 export default function AttachmentUploader({ requestId, existing }) {
   const [busy, setBusy] = useState(false)
@@ -19,8 +20,11 @@ export default function AttachmentUploader({ requestId, existing }) {
         attachmentName: name,
         attachmentType: type,
       })
+      notifySuccess('แนบไฟล์เรียบร้อยแล้ว')
     } catch (err) {
-      setError(err.message || 'แนบไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')
+      const message = err.message || 'แนบไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง'
+      setError(message)
+      notifyError(message)
     } finally {
       setBusy(false)
       e.target.value = ''

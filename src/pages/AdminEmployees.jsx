@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteField, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const GENDER_LABELS = { female: 'หญิง', male: 'ชาย' }
-const EMPLOYMENT_STATUS_LABELS = { permanent: 'บรรจุ', probation: 'ทดลองงาน', intern: 'ฝึกงาน' }
-const PAYROLL_FIELDS = ['baseSalary', 'employmentDeposit', 'socialSecurityDeduction', 'attendanceBonus']
+const EMPLOYMENT_STATUS_LABELS = { permanent: 'บรรจุ', permanent_pc: 'บรรจุ(PC)', probation: 'ทดลองงาน', intern: 'ฝึกงาน' }
+const PAYROLL_FIELDS = ['baseSalary', 'employmentDeposit', 'socialSecurityDeduction', 'attendanceBonus', 'overtimeRatePerHour']
 
 function createEmployeeForm() {
   return {
@@ -18,11 +19,12 @@ function createEmployeeForm() {
     employmentDeposit: '0',
     socialSecurityDeduction: '0',
     attendanceBonus: '0',
+    overtimeRatePerHour: '0',
   }
 }
 
 function splitEmployeeData(form) {
-  const { baseSalary, employmentDeposit, socialSecurityDeduction, attendanceBonus, ...employee } = form
+  const { baseSalary, employmentDeposit, socialSecurityDeduction, attendanceBonus, overtimeRatePerHour, ...employee } = form
   return {
     employee,
     payroll: {
@@ -30,6 +32,7 @@ function splitEmployeeData(form) {
       employmentDeposit: Number(employmentDeposit) || 0,
       socialSecurityDeduction: Number(socialSecurityDeduction) || 0,
       attendanceBonus: Number(attendanceBonus) || 0,
+      overtimeRatePerHour: Number(overtimeRatePerHour) || 0,
     },
   }
 }
@@ -43,8 +46,10 @@ function PayrollFields({ form, setForm }) {
       <h3 className="font-semibold text-ink">ข้อมูลเงินเดือน</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-xs text-ink-soft">
-          {salaryLabel}
-          <input type="number" min="0" step="0.01" className="input-field" value={form.baseSalary} onChange={(event) => update('baseSalary', event.target.value)} placeholder="0.00" />
+          {form.employmentStatus === 'permanent_pc' ? 'ฐานเงินเดือน' : salaryLabel}
+          {form.employmentStatus === 'permanent_pc'
+            ? <span className="input-field block bg-ink/5 text-ink-soft">บริษัทเป็นผู้กำหนด</span>
+            : <input type="number" min="0" step="0.01" className="input-field" value={form.baseSalary} onChange={(event) => update('baseSalary', event.target.value)} placeholder="0.00" />}
         </label>
         <label className="space-y-1 text-xs text-ink-soft">
           เงินประกันการทำงาน (หัก/เดือน)
@@ -58,6 +63,10 @@ function PayrollFields({ form, setForm }) {
           เบี้ยขยัน (ได้รับเมื่อสายรวมไม่เกิน 100 นาที/เดือน)
           <input type="number" min="0" step="0.01" className="input-field sm:max-w-sm" value={form.attendanceBonus} onChange={(event) => update('attendanceBonus', event.target.value)} placeholder="0.00" />
         </label>
+        <label className="space-y-1 text-xs text-ink-soft sm:col-span-2">
+          อัตราค่า OT/ชั่วโมง
+          <input type="number" min="0" step="0.01" className="input-field sm:max-w-sm" value={form.overtimeRatePerHour} onChange={(event) => update('overtimeRatePerHour', event.target.value)} placeholder="0.00" />
+        </label>
       </div>
     </section>
   )
@@ -70,6 +79,7 @@ function EmploymentStatusField({ value, onChange }) {
       <select className="input-field" value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">เลือกสถานะ</option>
         <option value="permanent">บรรจุ</option>
+        <option value="permanent_pc">บรรจุ(PC)</option>
         <option value="probation">ทดลองงาน</option>
         <option value="intern">ฝึกงาน</option>
       </select>
@@ -77,8 +87,8 @@ function EmploymentStatusField({ value, onChange }) {
   )
 }
 
-function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
-  const [editing, setEditing] = useState(false)
+function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave, startEditing = false, onSaved }) {
+  const [editing, setEditing] = useState(startEditing)
   const [saveError, setSaveError] = useState('')
   const [form, setForm] = useState({
     name: emp.name,
@@ -91,6 +101,7 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
     employmentDeposit: String(payrollProfile?.employmentDeposit ?? 0),
     socialSecurityDeduction: String(payrollProfile?.socialSecurityDeduction ?? 0),
     attendanceBonus: String(payrollProfile?.attendanceBonus ?? 0),
+    overtimeRatePerHour: String(payrollProfile?.overtimeRatePerHour ?? 0),
     active: emp.active !== false,
     balances: { ...(emp.balances || {}) },
   })
@@ -108,6 +119,7 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
       employmentDeposit: String(payrollProfile?.employmentDeposit ?? 0),
       socialSecurityDeduction: String(payrollProfile?.socialSecurityDeduction ?? 0),
       attendanceBonus: String(payrollProfile?.attendanceBonus ?? 0),
+      overtimeRatePerHour: String(payrollProfile?.overtimeRatePerHour ?? 0),
       active: emp.active !== false,
       balances: { ...(emp.balances || {}) },
     })
@@ -117,7 +129,12 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
     setSaveError('')
     try {
       const saved = await onSave(emp.id, form)
-      if (saved !== false) setEditing(false)
+      if (saved !== false) {
+        setEditing(false)
+        onSaved?.()
+      } else {
+        setSaveError('บันทึกข้อมูลพนักงานแล้ว แต่ข้อมูลเงินเดือนบันทึกไม่สำเร็จ')
+      }
     } catch (error) {
       setSaveError(`บันทึกข้อมูลพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
     }
@@ -148,7 +165,7 @@ function EmployeeRow({ emp, payrollProfile, leaveTypes, onSave }) {
   }
 
   return (
-    <div className="card p-4 space-y-3">
+    <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <input className="input-field" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ชื่อ" />
         <input className="input-field font-mono" value={form.pin} onChange={(e) => setForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))} placeholder="PIN" />
@@ -215,7 +232,8 @@ export default function AdminEmployees() {
   const [employees, setEmployees] = useState([])
   const [payrollProfiles, setPayrollProfiles] = useState([])
   const [leaveTypes, setLeaveTypes] = useState([])
-  const [showAdd, setShowAdd] = useState(false)
+  const [activeDirectory, setActiveDirectory] = useState('')
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [newEmp, setNewEmp] = useState(createEmployeeForm)
   const [error, setError] = useState('')
   const [payrollError, setPayrollError] = useState('')
@@ -279,19 +297,28 @@ export default function AdminEmployees() {
     if (operationCount > 0) batches.push(batch.commit())
     Promise.all(batches).catch((error) => {
       migrationStarted.current = false
-      setPayrollError(`ย้ายข้อมูลเงินเดือนเดิมไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+      const message = `ย้ายข้อมูลเงินเดือนเดิมไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`
+      setPayrollError(message)
+      notifyError(message)
     })
   }, [employees, payrollProfiles, payrollProfilesLoaded])
 
   async function saveEmployee(id, form) {
     const { employee, payroll } = splitEmployeeData(form)
-    await updateDoc(doc(db, 'employees', id), employee)
+    try {
+      await updateDoc(doc(db, 'employees', id), employee)
+    } catch (error) {
+      notifyError(`บันทึกข้อมูลพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
+      throw error
+    }
     try {
       await setDoc(doc(db, 'payrollProfiles', id), payroll, { merge: true })
       setPayrollError('')
+      notifySuccess('บันทึกข้อมูลพนักงานและเงินเดือนเรียบร้อยแล้ว')
       return true
     } catch (error) {
       setPayrollError(`บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+      notifyError(`บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
       return false
     }
   }
@@ -301,10 +328,12 @@ export default function AdminEmployees() {
     setError('')
     if (newEmp.pin.length < 4) {
       setError('PIN ต้องมีอย่างน้อย 4 หลัก')
+      notifyError('PIN ต้องมีอย่างน้อย 4 หลัก')
       return
     }
     if (employees.some((emp) => emp.pin === newEmp.pin)) {
       setError('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
+      notifyError('PIN นี้ถูกใช้แล้ว กรุณาเลือก PIN อื่น')
       return
     }
     const { employee, payroll } = splitEmployeeData(newEmp)
@@ -318,58 +347,127 @@ export default function AdminEmployees() {
       })
     } catch (error) {
       setError(`บันทึกพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+      notifyError(`บันทึกพนักงานไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
       return
     }
     try {
       await setDoc(doc(db, 'payrollProfiles', employeeRef.id), payroll)
       setPayrollError('')
+      notifySuccess(`เพิ่ม${employee.role === 'admin' ? 'แอดมิน' : 'พนักงาน'}เรียบร้อยแล้ว`)
     } catch (error) {
       setPayrollError(`บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'}). ตรวจ Firestore Rules ที่เผยแพร่จริง`)
+      notifyError(`สร้างพนักงานแล้ว แต่บันทึกข้อมูลเงินเดือนไม่สำเร็จ (${error.code || error.message || 'unknown'})`)
     }
     setNewEmp(createEmployeeForm())
-    setShowAdd(false)
+    setSelectedEmployeeId('')
   }
 
+  const directoryEmployees = employees.filter((employee) => activeDirectory === 'admins'
+    ? employee.role === 'admin'
+    : employee.role !== 'admin')
+  const selectedEmployee = directoryEmployees.find((employee) => employee.id === selectedEmployeeId)
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold text-ink">พนักงาน</h1>
-        <button onClick={() => setShowAdd((s) => !s)} className="btn-primary py-2 px-4 text-sm">
-          + เพิ่มพนักงาน
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+      <header>
+        <h1 className="font-display text-2xl font-semibold text-ink">ข้อมูลบุคลากร</h1>
+        <p className="mt-1 text-sm text-ink-soft">แยกรายชื่อพนักงานและผู้ดูแลระบบ</p>
+      </header>
+
+      {payrollError && <p role="alert" className="text-sm text-clay">{payrollError}</p>}
+      {error && <p role="alert" className="text-sm text-clay">{error}</p>}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button type="button" onClick={() => { setActiveDirectory('employees'); setSelectedEmployeeId('') }} className="flex min-h-24 items-center justify-between border-y border-ink/15 px-4 py-4 text-left hover:bg-ink/5">
+          <span>
+            <span className="block font-display text-lg font-semibold text-ink">พนักงาน</span>
+            <span className="mt-1 block text-sm text-ink-soft">{employees.filter((employee) => employee.role !== 'admin').length} รายชื่อ</span>
+          </span>
+          <span aria-hidden="true" className="text-xl text-ink-soft">›</span>
+        </button>
+        <button type="button" onClick={() => { setActiveDirectory('admins'); setSelectedEmployeeId('') }} className="flex min-h-24 items-center justify-between border-y border-ink/15 px-4 py-4 text-left hover:bg-ink/5">
+          <span>
+            <span className="block font-display text-lg font-semibold text-ink">แอดมิน</span>
+            <span className="mt-1 block text-sm text-ink-soft">{employees.filter((employee) => employee.role === 'admin').length} รายชื่อ</span>
+          </span>
+          <span aria-hidden="true" className="text-xl text-ink-soft">›</span>
         </button>
       </div>
 
-      {payrollError && <p role="alert" className="text-sm text-clay">{payrollError}</p>}
-
-      {showAdd && (
-        <form onSubmit={addEmployee} className="card p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <input required className="input-field" placeholder="ชื่อ-นามสกุล" value={newEmp.name} onChange={(e) => setNewEmp((f) => ({ ...f, name: e.target.value }))} />
-            <input required className="input-field font-mono" placeholder="PIN (4-6 หลัก)" value={newEmp.pin} onChange={(e) => setNewEmp((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))} />
-            <input className="input-field" placeholder="แผนก" value={newEmp.department} onChange={(e) => setNewEmp((f) => ({ ...f, department: e.target.value }))} />
-            <select className="input-field" value={newEmp.role} onChange={(e) => setNewEmp((f) => ({ ...f, role: e.target.value }))}>
-              <option value="employee">พนักงาน</option>
-              <option value="admin">แอดมิน</option>
-            </select>
-            <select className="input-field" value={newEmp.gender} onChange={(e) => setNewEmp((f) => ({ ...f, gender: e.target.value }))}>
-              <option value="">ไม่ระบุเพศ</option>
-              <option value="female">หญิง</option>
-              <option value="male">ชาย</option>
-            </select>
-            <EmploymentStatusField value={newEmp.employmentStatus} onChange={(employmentStatus) => setNewEmp((current) => ({ ...current, employmentStatus }))} />
-          </div>
-          <p className="text-xs text-ink-soft">ระบุเพศเพื่อเปิดสิทธิ์ "ลาคลอดบุตร" ให้เฉพาะพนักงานหญิงเท่านั้น</p>
-          <PayrollFields form={newEmp} setForm={setNewEmp} />
-          {error && <p className="text-clay text-sm">{error}</p>}
-          <button className="btn-primary py-2 px-4 text-sm">บันทึกพนักงานใหม่</button>
-        </form>
+      {activeDirectory && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-3 sm:p-6" onClick={() => setActiveDirectory('')}>
+          <section role="dialog" aria-modal="true" aria-labelledby="employee-directory-title" onClick={(event) => event.stopPropagation()} className="card modal-frame w-full max-w-3xl">
+            <header className="flex shrink-0 items-center justify-between border-b border-ink/10 px-5 py-4">
+              <div>
+                <h2 id="employee-directory-title" className="font-display text-lg font-semibold text-ink">{activeDirectory === 'admins' ? 'รายชื่อแอดมิน' : 'รายชื่อพนักงาน'}</h2>
+                <p className="mt-1 text-xs text-ink-soft">{directoryEmployees.length} รายชื่อ</p>
+              </div>
+              <button type="button" onClick={() => setActiveDirectory('')} aria-label="ปิดรายชื่อ" className="px-2 text-xl text-ink-soft">×</button>
+            </header>
+            <div className="overflow-hidden">
+              <div className={`flex w-[200%] transition-transform duration-300 ease-out ${selectedEmployeeId ? '-translate-x-1/2' : 'translate-x-0'}`}>
+                <section className="max-h-[72vh] w-1/2 shrink-0 overflow-y-auto px-5 py-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-ink">{activeDirectory === 'admins' ? 'ผู้ดูแลระบบ' : 'พนักงานทั้งหมด'}</p>
+                    <button type="button" className="btn-primary px-3 py-2 text-sm" onClick={() => {
+                      setError('')
+                      setNewEmp({ ...createEmployeeForm(), role: activeDirectory === 'admins' ? 'admin' : 'employee' })
+                      setSelectedEmployeeId('__new__')
+                    }}>
+                      เพิ่ม{activeDirectory === 'admins' ? 'แอดมิน' : 'พนักงาน'}
+                    </button>
+                  </div>
+                  {directoryEmployees.length === 0 ? <p className="py-8 text-center text-sm text-ink-soft">ยังไม่มีรายชื่อ</p> : (
+                    <div className="divide-y divide-ink/10">
+                      {directoryEmployees.map((person) => (
+                        <button key={person.id} type="button" onClick={() => setSelectedEmployeeId(person.id)} className="flex min-h-16 w-full items-center justify-between gap-3 py-3 text-left hover:bg-ink/5">
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold text-ink">{person.name}</span>
+                            <span className="mt-0.5 block truncate text-xs text-ink-soft">{person.department || 'ไม่ระบุแผนก'}{person.active === false ? ' · ระงับใช้งาน' : ''}</span>
+                          </span>
+                          <span aria-hidden="true" className="shrink-0 text-xl text-ink-soft">›</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+                <section className="max-h-[72vh] w-1/2 shrink-0 overflow-y-auto px-5 py-4">
+                  <button type="button" onClick={() => setSelectedEmployeeId('')} className="mb-4 text-sm font-semibold text-ink-soft hover:text-ink">‹ กลับรายชื่อ</button>
+                  {selectedEmployeeId === '__new__' ? (
+                    <form onSubmit={addEmployee} className="space-y-4">
+                      <h3 className="font-display text-lg font-semibold text-ink">เพิ่ม{activeDirectory === 'admins' ? 'แอดมิน' : 'พนักงาน'}</h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <input required className="input-field" placeholder="ชื่อ-นามสกุล" value={newEmp.name} onChange={(event) => setNewEmp((current) => ({ ...current, name: event.target.value }))} />
+                        <input required className="input-field font-mono" placeholder="PIN (4-6 หลัก)" value={newEmp.pin} onChange={(event) => setNewEmp((current) => ({ ...current, pin: event.target.value.replace(/\D/g, '') }))} />
+                        <input className="input-field" placeholder="แผนก" value={newEmp.department} onChange={(event) => setNewEmp((current) => ({ ...current, department: event.target.value }))} />
+                        <select className="input-field" value={newEmp.gender} onChange={(event) => setNewEmp((current) => ({ ...current, gender: event.target.value }))}>
+                          <option value="">ไม่ระบุเพศ</option>
+                          <option value="female">หญิง</option>
+                          <option value="male">ชาย</option>
+                        </select>
+                        <EmploymentStatusField value={newEmp.employmentStatus} onChange={(employmentStatus) => setNewEmp((current) => ({ ...current, employmentStatus }))} />
+                      </div>
+                      <PayrollFields form={newEmp} setForm={setNewEmp} />
+                      {error && <p role="alert" className="text-sm text-clay">{error}</p>}
+                      <button className="btn-primary px-4 py-2 text-sm">บันทึก</button>
+                    </form>
+                  ) : selectedEmployee ? (
+                    <EmployeeRow
+                      key={selectedEmployee.id}
+                      emp={selectedEmployee}
+                      payrollProfile={payrollProfiles.find((profile) => profile.id === selectedEmployee.id)}
+                      leaveTypes={leaveTypes}
+                      onSave={saveEmployee}
+                      startEditing
+                      onSaved={() => setSelectedEmployeeId('')}
+                    />
+                  ) : <p className="py-8 text-center text-sm text-ink-soft">เลือกรายชื่อเพื่อแก้ไขข้อมูล</p>}
+                </section>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
-
-      <div className="space-y-3">
-        {employees.map((emp) => (
-          <EmployeeRow key={emp.id} emp={emp} payrollProfile={payrollProfiles.find((profile) => profile.id === emp.id)} leaveTypes={leaveTypes} onSave={saveEmployee} />
-        ))}
-      </div>
     </div>
   )
 }

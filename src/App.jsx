@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { HolidaysProvider } from './context/HolidaysContext'
 import PinLogin from './components/PinLogin'
 import Navbar from './components/Navbar'
+import ToastViewport from './components/ToastViewport'
 import EmployeeDashboard from './pages/EmployeeDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminEmployees from './pages/AdminEmployees'
@@ -15,6 +16,9 @@ import AdminReportCenter from './pages/AdminReportCenter'
 import TeamCalendar from './pages/TeamCalendar'
 import PrintLeaveForm from './pages/PrintLeaveForm'
 import Attendance from './pages/Attendance'
+import VehicleLog from './pages/VehicleLog'
+import AdminVehicles from './pages/AdminVehicles'
+import AdminVehicleReports from './pages/AdminVehicleReports'
 import { missingFirebaseConfig } from './firebase'
 
 function RequireAdmin({ children }) {
@@ -58,6 +62,7 @@ function Shell() {
         <Routes>
           <Route path="/" element={<EmployeeDashboard />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/vehicles" element={<VehicleLog />} />
           <Route
             path="/calendar"
             element={
@@ -95,6 +100,22 @@ function Shell() {
             element={
               <RequireAdmin>
                 <AdminEmployees />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/vehicles"
+            element={
+              <RequireAdmin>
+                <AdminVehicles />
+              </RequireAdmin>
+            }
+          />
+          <Route
+            path="/admin/vehicle-reports"
+            element={
+              <RequireAdmin>
+                <AdminVehicleReports />
               </RequireAdmin>
             }
           />
@@ -150,6 +171,7 @@ export default function App() {
 
   return (
     <AuthProvider>
+      <ToastViewport />
       <HolidaysProvider>
         <Shell />
       </HolidaysProvider>

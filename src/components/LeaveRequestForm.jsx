@@ -6,6 +6,7 @@ import { calcDaysWithDuration, todayISO } from '../utils/dateUtils'
 import { fileToAttachment } from '../utils/attachmentStorage'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { useHolidays } from '../context/HolidaysContext'
+import { notifyError, notifySuccess } from './ToastViewport'
 
 const DURATIONS = [
   { id: 'full', label: 'เต็มวัน' },
@@ -47,14 +48,17 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
     setError('')
     if (!leaveTypeId) {
       setError('กรุณาเลือกประเภทการลา')
+      notifyError('กรุณาเลือกประเภทการลา')
       return
     }
     if (days <= 0) {
       setError('ช่วงวันที่ไม่ถูกต้อง')
+      notifyError('ช่วงวันที่ไม่ถูกต้อง')
       return
     }
     if (!reason.trim()) {
       setError('กรุณาระบุรายละเอียดการลา')
+      notifyError('กรุณาระบุรายละเอียดการลา')
       return
     }
 
@@ -88,6 +92,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
       })
 
       setSuccess(true)
+      notifySuccess('ส่งคำขอลาเรียบร้อยแล้ว')
       setReason('')
       setLeaveTypeId('')
       setFile(null)
@@ -95,7 +100,9 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
       onSubmitted?.()
       setTimeout(() => setSuccess(false), 3000)
     } catch (e2) {
-      setError(e2.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
+      const message = e2.message || 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'
+      setError(message)
+      notifyError(message)
     } finally {
       setBusy(false)
     }

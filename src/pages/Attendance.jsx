@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { collection, doc, onSnapshot, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { todayISO } from '../utils/dateUtils'
 import { parseGoogleMapsCoordinates } from '../utils/googleMaps'
-import { ATTENDANCE_EVENTS, calculateAttendanceLateMinutes, getAttendanceEvents, getNextAttendanceEvent, isAttendanceCheckInOpen } from '../utils/attendanceUtils'
+import { ATTENDANCE_EVENTS, calculateAttendanceLateMinutes, calculateOvertimeMinutes, getAttendanceEvents, getNextAttendanceEvent, isScheduledCheckInOpen } from '../utils/attendanceUtils'
+import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const SETTINGS_ID = 'attendanceSettings'
 const EARTH_RADIUS_METERS = 6371000
@@ -51,6 +52,16 @@ function formatShortDate(value) {
   return `${day}/${month}/${year.slice(-2)}`
 }
 
+function attendanceDateTime(date, time) {
+  return new Date(`${date}T${time}:00`)
+}
+
+function toTimeInput(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
 function MapsLink({ scan }) {
   if (!scan || !Number.isFinite(scan.latitude) || !Number.isFinite(scan.longitude)) return <span className="text-ink-soft">-</span>
   const mapsUrl = `https://www.google.com/maps?q=${scan.latitude},${scan.longitude}`
@@ -66,14 +77,36 @@ export default function Attendance({ embedded = false }) {
   const isAdmin = employee?.role === 'admin'
   const [settings, setSettings] = useState(null)
   const [settingsReady, setSettingsReady] = useState(false)
-  const [settingsDraft, setSettingsDraft] = useState({ latitude: '', longitude: '', radiusMeters: '100' })
+  const [settingsDraft, setSettingsDraft] = useState({
+    latitude: '',
+    longitude: '',
+    radiusMeters: '100',
+    workStartTime: '08:00',
+    workEndTime: '17:00',
+    overtimeOpen: false,
+    overtimeStartTime: '17:00',
+    overtimeEndTime: '20:00',
+  })
   const [googleMapsInput, setGoogleMapsInput] = useState('')
   const [todayRecord, setTodayRecord] = useState(null)
   const [records, setRecords] = useState([])
+  const [attendanceEditing, setAttendanceEditing] = useState(null)
+  const [attendanceEditTimes, setAttendanceEditTimes] = useState({})
+  const [attendanceEditBusy, setAttendanceEditBusy] = useState(false)
+  const [attendanceEditError, setAttendanceEditError] = useState('')
+  const [employees, setEmployees] = useState([])
+  const [manualEmployeeId, setManualEmployeeId] = useState('')
+  const [manualDate, setManualDate] = useState(todayISO())
+  const [manualTimes, setManualTimes] = useState({ checkIn: '08:00', lunchOut: '12:00', lunchReturn: '13:00', checkOut: '17:00' })
+  const [manualBusy, setManualBusy] = useState(false)
   const [showAttendanceHistory, setShowAttendanceHistory] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const showError = (text) => {
+    setError(text)
+    notifyError(text)
+  }
 
   const today = todayISO()
   const recordId = `${employee.id}_${today}`
@@ -89,10 +122,15 @@ export default function Attendance({ embedded = false }) {
         latitude: data?.latitude ?? '',
         longitude: data?.longitude ?? '',
         radiusMeters: String(data?.radiusMeters ?? 100),
+        workStartTime: data?.workStartTime || '08:00',
+        workEndTime: data?.workEndTime || '17:00',
+        overtimeOpen: data?.overtimeOpen === true,
+        overtimeStartTime: data?.overtimeStartTime || data?.workEndTime || '17:00',
+        overtimeEndTime: data?.overtimeEndTime || '20:00',
       })
       setSettingsReady(true)
     }, () => {
-      setError('โหลดพิกัดร้านไม่สำเร็จ')
+      showError('โหลดพิกัดร้านไม่สำเร็จ')
       setSettingsReady(true)
     })
     return unsubscribe
@@ -101,7 +139,7 @@ export default function Attendance({ embedded = false }) {
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'attendance', recordId), (snapshot) => {
       setTodayRecord(snapshot.exists() ? snapshot.data() : null)
-    }, () => setError('โหลดข้อมูลลงเวลาวันนี้ไม่สำเร็จ'))
+    }, () => showError('โหลดข้อมูลลงเวลาวันนี้ไม่สำเร็จ'))
     return unsubscribe
   }, [recordId])
 
@@ -111,8 +149,20 @@ export default function Attendance({ embedded = false }) {
       const rows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))
       rows.sort((a, b) => (b.attendanceDate || '').localeCompare(a.attendanceDate || '') || (b.checkInClientAt || '').localeCompare(a.checkInClientAt || ''))
       setRecords(rows.slice(0, 200))
-    }, () => setError('โหลดรายงานเวลาเข้างานไม่สำเร็จ'))
+    }, () => showError('โหลดรายงานเวลาเข้างานไม่สำเร็จ'))
     return unsubscribe
+  }, [isAdmin])
+
+  useEffect(() => {
+    if (!isAdmin) return undefined
+    return onSnapshot(collection(db, 'employees'), (snapshot) => {
+      const activeEmployees = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((item) => item.active !== false && item.role !== 'admin')
+        .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+      setEmployees(activeEmployees)
+      setManualEmployeeId((current) => current || activeEmployees[0]?.id || '')
+    }, () => showError('โหลดรายชื่อพนักงานสำหรับลงเวลาแทนไม่สำเร็จ'))
   }, [isAdmin])
 
   async function saveSettings(event) {
@@ -122,12 +172,24 @@ export default function Attendance({ embedded = false }) {
     const latitude = Number(settingsDraft.latitude)
     const longitude = Number(settingsDraft.longitude)
     const radiusMeters = Number(settingsDraft.radiusMeters)
+    const workStart = settingsDraft.workStartTime.split(':').map(Number)
+    const workEnd = settingsDraft.workEndTime.split(':').map(Number)
+    const overtimeStart = settingsDraft.overtimeStartTime.split(':').map(Number)
+    const overtimeEnd = settingsDraft.overtimeEndTime.split(':').map(Number)
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
-      setError('กรุณากรอกละติจูดและลองจิจูดให้ถูกต้อง')
+      showError('กรุณากรอกละติจูดและลองจิจูดให้ถูกต้อง')
       return
     }
     if (!Number.isFinite(radiusMeters) || radiusMeters < 1 || radiusMeters > 1000) {
-      setError('ระยะเช็กอินต้องอยู่ระหว่าง 1 ถึง 1,000 เมตร')
+      showError('ระยะเช็กอินต้องอยู่ระหว่าง 1 ถึง 1,000 เมตร')
+      return
+    }
+    if (workEnd[0] * 60 + workEnd[1] <= workStart[0] * 60 + workStart[1]) {
+      showError('เวลาเลิกงานต้องอยู่หลังเวลาเข้างาน')
+      return
+    }
+    if (settingsDraft.overtimeOpen && overtimeEnd[0] * 60 + overtimeEnd[1] <= overtimeStart[0] * 60 + overtimeStart[1]) {
+      showError('เวลาสิ้นสุด OT ต้องอยู่หลังเวลาเริ่ม OT')
       return
     }
     setBusy(true)
@@ -136,12 +198,18 @@ export default function Attendance({ embedded = false }) {
         latitude,
         longitude,
         radiusMeters,
+        workStartTime: settingsDraft.workStartTime,
+        workEndTime: settingsDraft.workEndTime,
+        overtimeOpen: settingsDraft.overtimeOpen,
+        overtimeStartTime: settingsDraft.overtimeStartTime,
+        overtimeEndTime: settingsDraft.overtimeEndTime,
         updatedBy: employee.id,
         updatedAt: serverTimestamp(),
       }, { merge: true })
       setMessage('บันทึกพิกัดร้านแล้ว')
+      notifySuccess('บันทึกการตั้งค่าเวลาและ OT เรียบร้อยแล้ว')
     } catch (saveError) {
-      setError(saveError.message || 'บันทึกพิกัดร้านไม่สำเร็จ')
+      showError(saveError.message || 'บันทึกพิกัดร้านไม่สำเร็จ')
     } finally {
       setBusy(false)
     }
@@ -158,8 +226,9 @@ export default function Attendance({ embedded = false }) {
         longitude: String(position.coords.longitude),
       }))
       setMessage('อ่านพิกัดปัจจุบันแล้ว กดบันทึกเพื่อใช้เป็นหมุดร้าน')
+      notifySuccess('อ่านตำแหน่งร้านสำเร็จ')
     } catch (locationError) {
-      setError(locationError.message)
+      showError(locationError.message)
     }
   }
 
@@ -169,7 +238,7 @@ export default function Attendance({ embedded = false }) {
     setMessage('')
     const coordinates = parseGoogleMapsCoordinates(googleMapsInput)
     if (!coordinates) {
-      setError('ไม่พบพิกัดในข้อความนี้ ให้วางลิงก์ Google Maps ที่มีพิกัด หรือวางตัวเลขละติจูด, ลองจิจูด')
+      showError('ไม่พบพิกัดในข้อความนี้ ให้วางลิงก์ Google Maps ที่มีพิกัด หรือวางตัวเลขละติจูด, ลองจิจูด')
       return
     }
     setSettingsDraft((current) => ({
@@ -178,21 +247,22 @@ export default function Attendance({ embedded = false }) {
       longitude: String(coordinates.longitude),
     }))
     setMessage('เลือกพิกัดจาก Google Maps แล้ว กดบันทึกเพื่อใช้เป็นหมุดร้าน')
+    notifySuccess('เลือกพิกัดร้านแล้ว')
   }
 
   async function recordAttendanceEvent() {
     setError('')
     setMessage('')
     if (!nextEventId) {
-      setError('ลงเวลาครบทั้ง 4 ขั้นตอนแล้ว')
+      showError('ลงเวลาครบทั้ง 4 ขั้นตอนแล้ว')
       return
     }
-    if (nextEventId === 'checkIn' && !isAttendanceCheckInOpen(new Date())) {
-      setError('ยังลงเวลาไม่ได้ ระบบเปิดให้เช็กอินตั้งแต่ 07:50 น.')
+    if (nextEventId === 'checkIn' && !isScheduledCheckInOpen(new Date(), settings?.workStartTime)) {
+      showError(`ยังลงเวลาไม่ได้ ระบบเปิดให้เช็กอินก่อนเวลาเข้างาน 10 นาที (${settings?.workStartTime || '08:00'} น.)`)
       return
     }
     if (!Number.isFinite(settings?.latitude) || !Number.isFinite(settings?.longitude) || !settings?.radiusMeters) {
-      setError('ยังไม่ได้ตั้งพิกัดร้าน กรุณาติดต่อแอดมิน')
+      showError('ยังไม่ได้ตั้งพิกัดร้าน กรุณาติดต่อแอดมิน')
       return
     }
 
@@ -202,7 +272,7 @@ export default function Attendance({ embedded = false }) {
       const { latitude, longitude, accuracy } = position.coords
       const distanceMeters = calculateDistanceMeters(latitude, longitude, settings.latitude, settings.longitude)
       if (distanceMeters > settings.radiusMeters) {
-        setError(`อยู่นอกพื้นที่ร้าน ${Math.round(distanceMeters)} เมตร (กำหนดไม่เกิน ${settings.radiusMeters} เมตร)`)
+        showError(`อยู่นอกพื้นที่ร้าน ${Math.round(distanceMeters)} เมตร (กำหนดไม่เกิน ${settings.radiusMeters} เมตร)`)
         return
       }
 
@@ -225,11 +295,12 @@ export default function Attendance({ embedded = false }) {
         const currentEvents = getAttendanceEvents(currentRecord)
         const expectedEvent = getNextAttendanceEvent(currentRecord)
         if (expectedEvent !== nextEventId) throw new Error('ลำดับการลงเวลาเปลี่ยนแล้ว กรุณาตรวจสอบสถานะล่าสุด')
-        if (nextEventId === 'checkIn' && !isAttendanceCheckInOpen(now)) {
-          throw new Error('ยังลงเวลาไม่ได้ ระบบเปิดให้เช็กอินตั้งแต่ 07:50 น.')
+        if (nextEventId === 'checkIn' && !isScheduledCheckInOpen(now, latestSettings.workStartTime)) {
+          throw new Error(`ยังลงเวลาไม่ได้ ระบบเปิดให้เช็กอินก่อนเวลาเข้างาน 10 นาที (${latestSettings.workStartTime || '08:00'} น.)`)
         }
 
-        const lateMinutes = calculateAttendanceLateMinutes(nextEventId, now, currentEvents)
+        const lateMinutes = calculateAttendanceLateMinutes(nextEventId, now, currentEvents, latestSettings)
+        const overtimeMinutes = nextEventId === 'checkOut' ? calculateOvertimeMinutes(now, latestSettings) : 0
         const event = {
           clientAt: now.toISOString(),
           serverAt: serverTimestamp(),
@@ -240,6 +311,7 @@ export default function Attendance({ embedded = false }) {
           radiusMeters: latestSettings.radiusMeters,
           lateMinutes,
           deductionBaht: lateMinutes,
+          overtimeMinutes,
         }
         const events = { ...currentEvents, [nextEventId]: event }
         const totalDeduction = Object.values(events).reduce((total, scan) => total + (scan.deductionBaht || 0), 0)
@@ -258,18 +330,171 @@ export default function Attendance({ embedded = false }) {
           radiusMeters: events.checkIn?.radiusMeters ?? latestSettings.radiusMeters,
           lateMinutes: Object.values(events).reduce((total, scan) => total + (scan.lateMinutes || 0), 0),
           deductionBaht: totalDeduction,
+          overtimeMinutes: Object.values(events).reduce((total, scan) => total + (scan.overtimeMinutes || 0), 0),
           status: totalDeduction > 0 ? 'late' : 'on-time',
           updatedAt: serverTimestamp(),
         }, { merge: true })
         return { lateMinutes, totalDeduction }
       })
-      setMessage(result.lateMinutes > 0
+      const successMessage = result.lateMinutes > 0
         ? `${nextEvent.label}แล้ว สาย ${result.lateMinutes} นาที หัก ${result.lateMinutes} บาท`
-        : `${nextEvent.label}เรียบร้อย`)
+        : `${nextEvent.label}เรียบร้อย`
+      setMessage(successMessage)
+      notifySuccess(successMessage)
     } catch (checkInError) {
-      setError(checkInError.message || 'ลงเวลาไม่สำเร็จ กรุณาลองอีกครั้ง')
+      showError(checkInError.message || 'ลงเวลาไม่สำเร็จ กรุณาลองอีกครั้ง')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function saveManualAttendance(event) {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+    const selectedEmployee = employees.find((item) => item.id === manualEmployeeId)
+    if (!selectedEmployee) {
+      showError('กรุณาเลือกพนักงาน')
+      return
+    }
+    if (Object.values(manualTimes).some((time) => !time)) {
+      showError('กรุณากรอกเวลาให้ครบทั้ง 4 ขั้นตอน')
+      return
+    }
+    const timestamps = Object.fromEntries(ATTENDANCE_EVENTS.map(({ id }) => [id, attendanceDateTime(manualDate, manualTimes[id])]))
+    if (timestamps.checkIn >= timestamps.lunchOut || timestamps.lunchOut >= timestamps.lunchReturn || timestamps.lunchReturn >= timestamps.checkOut) {
+      showError('เวลาต้องเรียงจากเข้างาน พักกลางวัน กลับจากพัก และเลิกงาน')
+      return
+    }
+
+    setManualBusy(true)
+    try {
+      const attendanceRef = doc(db, 'attendance', `${selectedEmployee.id}_${manualDate}`)
+      const existingSnapshot = await getDoc(attendanceRef)
+      const existingRecord = existingSnapshot.exists() ? existingSnapshot.data() : {}
+      const events = getAttendanceEvents(existingRecord)
+      for (const attendanceEvent of ATTENDANCE_EVENTS) {
+        const { id } = attendanceEvent
+        const lateMinutes = calculateAttendanceLateMinutes(id, timestamps[id], events, settings || {})
+        events[id] = {
+          ...events[id],
+          clientAt: timestamps[id].toISOString(),
+          lateMinutes,
+          deductionBaht: lateMinutes,
+          overtimeMinutes: id === 'checkOut' ? calculateOvertimeMinutes(timestamps[id], settings || {}) : 0,
+          recordedByAdminId: employee.id,
+          manuallyRecorded: true,
+        }
+      }
+      const deductionBaht = Object.values(events).reduce((total, scan) => total + (scan.deductionBaht || 0), 0)
+      await setDoc(attendanceRef, {
+        employeeId: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        department: selectedEmployee.department || '',
+        attendanceDate: manualDate,
+        events,
+        checkInClientAt: events.checkIn?.clientAt || null,
+        checkInAt: serverTimestamp(),
+        lateMinutes: Object.values(events).reduce((total, scan) => total + (scan.lateMinutes || 0), 0),
+        deductionBaht,
+        overtimeMinutes: Object.values(events).reduce((total, scan) => total + (scan.overtimeMinutes || 0), 0),
+        status: deductionBaht > 0 ? 'late' : 'on-time',
+        updatedByAdminId: employee.id,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+      setMessage(`บันทึกเวลาแทน ${selectedEmployee.name} วันที่ ${manualDate} แล้ว`)
+      notifySuccess(`บันทึกเวลาแทน ${selectedEmployee.name} สำเร็จ`)
+    } catch (manualError) {
+      showError(`บันทึกเวลาแทนไม่สำเร็จ (${manualError.code || manualError.message || 'unknown'})`)
+    } finally {
+      setManualBusy(false)
+    }
+  }
+
+  function beginEditAttendance(record) {
+    const events = getAttendanceEvents(record)
+    setAttendanceEditing(record)
+    setAttendanceEditError('')
+    setAttendanceEditTimes(Object.fromEntries(ATTENDANCE_EVENTS.map(({ id }) => [id, toTimeInput(events[id]?.clientAt)])))
+  }
+
+  async function saveEditedAttendance(event) {
+    event.preventDefault()
+    if (!attendanceEditing) return
+    setAttendanceEditError('')
+    const suppliedTimes = ATTENDANCE_EVENTS.map(({ id }) => attendanceEditTimes[id]).filter(Boolean)
+    if (suppliedTimes.length === 0) {
+      setAttendanceEditError('กรุณาระบุเวลาอย่างน้อยหนึ่งรายการ')
+      notifyError('กรุณาระบุเวลาอย่างน้อยหนึ่งรายการ')
+      return
+    }
+    const orderedMinutes = suppliedTimes.map((time) => {
+      const [hours, minutes] = time.split(':').map(Number)
+      return hours * 60 + minutes
+    })
+    if (orderedMinutes.some((minutes, index) => index > 0 && minutes <= orderedMinutes[index - 1])) {
+      setAttendanceEditError('เวลาเข้า-ออกต้องเรียงตามลำดับเวลา')
+      notifyError('เวลาเข้า-ออกต้องเรียงตามลำดับเวลา')
+      return
+    }
+
+    setAttendanceEditBusy(true)
+    try {
+      const previousEvents = getAttendanceEvents(attendanceEditing)
+      const events = {}
+      for (const attendanceEvent of ATTENDANCE_EVENTS) {
+        const { id } = attendanceEvent
+        const time = attendanceEditTimes[id]
+        if (!time) continue
+        const timestamp = attendanceDateTime(attendanceEditing.attendanceDate, time)
+        const lateMinutes = calculateAttendanceLateMinutes(id, timestamp, events, settings || {})
+        events[id] = {
+          ...previousEvents[id],
+          clientAt: timestamp.toISOString(),
+          lateMinutes,
+          deductionBaht: lateMinutes,
+          overtimeMinutes: id === 'checkOut' ? calculateOvertimeMinutes(timestamp, settings || {}) : 0,
+        }
+      }
+      const lateMinutes = Object.values(events).reduce((total, scan) => total + (scan.lateMinutes || 0), 0)
+      const deductionBaht = Object.values(events).reduce((total, scan) => total + (scan.deductionBaht || 0), 0)
+      const overtimeMinutes = Object.values(events).reduce((total, scan) => total + (scan.overtimeMinutes || 0), 0)
+      const checkInEvent = events.checkIn
+      await updateDoc(doc(db, 'attendance', attendanceEditing.id), {
+        events,
+        checkInClientAt: checkInEvent?.clientAt || null,
+        checkInAt: checkInEvent?.serverAt || attendanceEditing.checkInAt || null,
+        latitude: checkInEvent?.latitude ?? null,
+        longitude: checkInEvent?.longitude ?? null,
+        accuracyMeters: checkInEvent?.accuracyMeters ?? null,
+        distanceMeters: checkInEvent?.distanceMeters ?? null,
+        radiusMeters: checkInEvent?.radiusMeters ?? attendanceEditing.radiusMeters ?? null,
+        lateMinutes,
+        deductionBaht,
+        overtimeMinutes,
+        status: deductionBaht > 0 ? 'late' : 'on-time',
+        updatedByAdminId: employee.id,
+        updatedAt: serverTimestamp(),
+      })
+      setAttendanceEditing(null)
+      setAttendanceEditError('')
+      notifySuccess(`แก้ไขประวัติลงเวลาของ ${attendanceEditing.employeeName} แล้ว`)
+    } catch (editError) {
+      const message = `แก้ไขประวัติลงเวลาไม่สำเร็จ (${editError.code || editError.message || 'unknown'})`
+      setAttendanceEditError(message)
+      notifyError(message)
+    } finally {
+      setAttendanceEditBusy(false)
+    }
+  }
+
+  async function deleteAttendanceRecord(record) {
+    if (!confirm(`ลบประวัติลงเวลาของ ${record.employeeName} วันที่ ${formatDate(record.attendanceDate)} หรือไม่?`)) return
+    try {
+      await deleteDoc(doc(db, 'attendance', record.id))
+      notifySuccess('ลบประวัติลงเวลาเรียบร้อยแล้ว')
+    } catch (deleteError) {
+      notifyError(`ลบประวัติลงเวลาไม่สำเร็จ (${deleteError.code || deleteError.message || 'unknown'})`)
     }
   }
 
@@ -280,7 +505,7 @@ export default function Attendance({ embedded = false }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">ลงเวลาเข้างาน</h1>
-          <p className="mt-1 text-sm text-ink-soft">{formatDate(today)} · เข้างานได้ตั้งแต่ 07:50 น. สายหลัง 08:00 น. และกลับจากพักเกิน 60 นาที หักนาทีละ 1 บาท</p>
+          <p className="mt-1 text-sm text-ink-soft">{formatDate(today)} · เวลาเข้างาน {settings?.workStartTime || '08:00'}-{settings?.workEndTime || '17:00'} น. · เปิดเช็กอินก่อนเวลา 10 นาที</p>
         </div>
         {isAdmin && (
           <button type="button" onClick={() => setShowAttendanceHistory(true)} className="btn-secondary shrink-0 py-2 px-3 text-sm">
@@ -331,6 +556,36 @@ export default function Attendance({ embedded = false }) {
 
       {isAdmin && (
         <>
+          <section className="card space-y-4 p-5">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-ink">ลงเวลาแทนพนักงาน</h2>
+              <p className="mt-1 text-sm text-ink-soft">บันทึกย้อนหลังเพื่อทดสอบรายงานและเงินเดือน โดยไม่ใช้ตำแหน่ง GPS</p>
+            </div>
+            <form onSubmit={saveManualAttendance} className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-sm text-ink-soft">พนักงาน
+                  <select className="input-field mt-1" value={manualEmployeeId} onChange={(event) => setManualEmployeeId(event.target.value)} required>
+                    <option value="">เลือกพนักงาน</option>
+                    {employees.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.department || 'ไม่ระบุแผนก'}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm text-ink-soft">วันที่ลงเวลา
+                  <input type="date" className="input-field mt-1" value={manualDate} onChange={(event) => setManualDate(event.target.value)} required />
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {ATTENDANCE_EVENTS.map((attendanceEvent) => (
+                  <label key={attendanceEvent.id} className="text-sm text-ink-soft">{attendanceEvent.label}
+                    <input type="time" className="input-field mt-1" value={manualTimes[attendanceEvent.id]} onChange={(event) => setManualTimes((current) => ({ ...current, [attendanceEvent.id]: event.target.value }))} required />
+                  </label>
+                ))}
+              </div>
+              <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={manualBusy || employees.length === 0}>
+                {manualBusy ? 'กำลังบันทึก...' : 'บันทึกเวลาแทนพนักงาน'}
+              </button>
+            </form>
+          </section>
+
           <section className="card p-5 space-y-4">
             <div>
               <h2 className="font-display text-lg font-semibold text-ink">ตั้งค่าพิกัดร้าน</h2>
@@ -372,6 +627,31 @@ export default function Attendance({ embedded = false }) {
                   <input type="number" min="1" max="1000" value={settingsDraft.radiusMeters} onChange={(event) => setSettingsDraft({ ...settingsDraft, radiusMeters: event.target.value })} className="input-field mt-1" required />
                 </label>
               </div>
+              <div className="border-t border-ink/10 pt-4">
+                <h3 className="text-sm font-semibold text-ink">เวลาเข้างานปกติ</h3>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="text-sm text-ink-soft">เวลาเข้างาน
+                    <input type="time" value={settingsDraft.workStartTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, workStartTime: event.target.value })} className="input-field mt-1" required />
+                  </label>
+                  <label className="text-sm text-ink-soft">เวลาเลิกงาน
+                    <input type="time" value={settingsDraft.workEndTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, workEndTime: event.target.value })} className="input-field mt-1" required />
+                  </label>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 border-t border-ink/10 pt-4 text-sm font-semibold text-ink">
+                <input type="checkbox" checked={settingsDraft.overtimeOpen} onChange={(event) => setSettingsDraft({ ...settingsDraft, overtimeOpen: event.target.checked })} />
+                เปิดช่วงเวลาพิเศษสำหรับ OT
+              </label>
+              {settingsDraft.overtimeOpen && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="text-sm text-ink-soft">เริ่ม OT
+                    <input type="time" value={settingsDraft.overtimeStartTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, overtimeStartTime: event.target.value })} className="input-field mt-1" required />
+                  </label>
+                  <label className="text-sm text-ink-soft">สิ้นสุด OT
+                    <input type="time" value={settingsDraft.overtimeEndTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, overtimeEndTime: event.target.value })} className="input-field mt-1" required />
+                  </label>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={useCurrentLocationForSettings} className="btn-secondary py-2 px-4 text-sm">ใช้ตำแหน่งนี้เป็นหมุดร้าน</button>
                 <button type="submit" disabled={busy} className="btn-primary py-2 px-4 text-sm">{busy ? 'กำลังบันทึก...' : 'บันทึกพิกัด'}</button>
@@ -405,6 +685,7 @@ export default function Attendance({ embedded = false }) {
                     <th className="whitespace-nowrap p-3 font-semibold">ออกงาน</th>
                     <th className="whitespace-nowrap p-3 font-semibold">สาย</th>
                     <th className="whitespace-nowrap p-3 font-semibold">หัก (บาท)</th>
+                    <th className="whitespace-nowrap p-3 font-semibold">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -415,15 +696,49 @@ export default function Attendance({ embedded = false }) {
                       {ATTENDANCE_EVENTS.map((event) => <td key={event.id} className="whitespace-nowrap p-3 text-center"><MapsLink scan={getAttendanceEvents(record)[event.id]} /></td>)}
                       <td className="whitespace-nowrap p-3 text-center font-mono">{record.lateMinutes || 0} นาที</td>
                       <td className="whitespace-nowrap p-3 text-center font-mono">{record.deductionBaht || 0}</td>
+                      <td className="whitespace-nowrap p-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button type="button" className="btn-secondary px-2 py-1 text-xs" onClick={() => beginEditAttendance(record)}>แก้ไข</button>
+                          <button type="button" className="px-2 py-1 text-xs font-semibold text-clay hover:bg-clay-light" onClick={() => deleteAttendanceRecord(record)}>ลบ</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
-                  {records.length === 0 && <tr><td colSpan={ATTENDANCE_EVENTS.length + 4} className="p-8 text-center text-ink-soft">ยังไม่มีรายการลงเวลา</td></tr>}
+                  {records.length === 0 && <tr><td colSpan={ATTENDANCE_EVENTS.length + 5} className="p-8 text-center text-ink-soft">ยังไม่มีรายการลงเวลา</td></tr>}
                 </tbody>
               </table>
             </div>
             <footer className="flex justify-end border-t border-ink/10 px-4 py-3 sm:px-6">
               <button type="button" onClick={() => setShowAttendanceHistory(false)} className="btn-secondary py-2 px-4 text-sm">ปิด</button>
             </footer>
+          </section>
+        </div>
+      )}
+
+      {isAdmin && attendanceEditing && (
+        <div className="no-print fixed inset-0 z-[60] flex items-center justify-center bg-ink/50 p-3 sm:p-6" onClick={() => setAttendanceEditing(null)}>
+          <section role="dialog" aria-modal="true" aria-labelledby="attendance-edit-title" onClick={(event) => event.stopPropagation()} className="card modal-frame w-full max-w-lg">
+            <header className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+              <div>
+                <h2 id="attendance-edit-title" className="font-display text-lg font-semibold text-ink">แก้ไขประวัติลงเวลา</h2>
+                <p className="mt-1 text-xs text-ink-soft">{attendanceEditing.employeeName} · {formatDate(attendanceEditing.attendanceDate)}</p>
+              </div>
+              <button type="button" onClick={() => setAttendanceEditing(null)} aria-label="ปิดแก้ไขเวลา" className="px-2 text-xl text-ink-soft">×</button>
+            </header>
+            <form onSubmit={saveEditedAttendance} className="space-y-4 px-5 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                {ATTENDANCE_EVENTS.map((attendanceEvent) => (
+                  <label key={attendanceEvent.id} className="text-sm text-ink-soft">{attendanceEvent.label}
+                    <input type="time" className="input-field mt-1" value={attendanceEditTimes[attendanceEvent.id] || ''} onChange={(event) => setAttendanceEditTimes((current) => ({ ...current, [attendanceEvent.id]: event.target.value }))} />
+                  </label>
+                ))}
+              </div>
+              {attendanceEditError && <p role="alert" className="text-sm text-clay">{attendanceEditError}</p>}
+              <footer className="flex justify-end gap-2 border-t border-ink/10 pt-4">
+                <button type="button" className="btn-secondary px-4 py-2 text-sm" onClick={() => setAttendanceEditing(null)}>ยกเลิก</button>
+                <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={attendanceEditBusy}>{attendanceEditBusy ? 'กำลังบันทึก...' : 'บันทึกเวลา'}</button>
+              </footer>
+            </form>
           </section>
         </div>
       )}

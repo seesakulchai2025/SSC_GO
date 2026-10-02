@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { notifySuccess } from '../components/ToastViewport'
 import { formatThaiDate, formatThaiDateLong, DURATION_LABELS } from '../utils/dateUtils'
 
 const COMPANY_NAME = 'บริษัท สีสกุลไชย จำกัด'
@@ -101,7 +102,7 @@ export default function PrintLeaveForm({ requestId, onClose }) {
           ) : (
             <Link to="/" className="text-sm font-semibold text-ink-soft underline">← กลับ</Link>
           )}
-          <button onClick={() => window.print()} className="btn-primary py-2 px-5 text-sm">
+          <button onClick={() => { window.print(); notifySuccess('เปิดหน้าต่างพิมพ์หรือบันทึก PDF แล้ว') }} className="btn-primary py-2 px-5 text-sm">
             พิมพ์ / บันทึกเป็น PDF
           </button>
         </div>
