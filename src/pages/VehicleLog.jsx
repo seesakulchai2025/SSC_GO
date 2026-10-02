@@ -159,6 +159,7 @@ export default function VehicleLog() {
   const [editing, setEditing] = useState(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [showDailyUsage, setShowDailyUsage] = useState(false)
+  const [lastReturnedCheckout, setLastReturnedCheckout] = useState(null)
   const [viewDate, setViewDate] = useState(todayISO())
   const [employeeSearch, setEmployeeSearch] = useState('')
   const [activeSlide, setActiveSlide] = useState(0)
@@ -471,6 +472,7 @@ export default function VehicleLog() {
 
   async function returnVehicle(checkout) {
     if (!confirm(`ยืนยันคืนรถ ${checkout.vehicleName} (${checkout.plate}) ใช่หรือไม่?`)) return
+    const returnedAt = new Date().toISOString()
     setSaving(true)
     try {
       await runTransaction(db, async (transaction) => {
@@ -479,7 +481,7 @@ export default function VehicleLog() {
         const employeeRef = doc(db, 'employees', checkout.employeeId)
         const [checkoutSnapshot, vehicleSnapshot, employeeSnapshot] = await Promise.all([transaction.get(checkoutRef), transaction.get(vehicleRef), transaction.get(employeeRef)])
         if (!checkoutSnapshot.exists() || checkoutSnapshot.data().returnedAt) throw new Error('รายการนี้ถูกรถคืนไปแล้ว')
-        transaction.update(checkoutRef, { returnedAt: new Date().toISOString(), updatedAt: serverTimestamp() })
+        transaction.update(checkoutRef, { returnedAt, updatedAt: serverTimestamp() })
         if (employeeSnapshot.exists() && employeeSnapshot.data().activeVehicleCheckoutId === checkout.id) {
           transaction.update(employeeRef, { activeVehicleCheckoutId: null, updatedAt: serverTimestamp() })
         }
@@ -487,6 +489,7 @@ export default function VehicleLog() {
           transaction.update(vehicleRef, { activeCheckoutId: null, updatedAt: serverTimestamp() })
         }
       })
+      setLastReturnedCheckout({ ...checkout, returnedAt })
       notifySuccess('บันทึกการคืนรถเรียบร้อยแล้ว')
     } catch (error) {
       notifyError(error.message || 'บันทึกการคืนรถไม่สำเร็จ')
@@ -568,8 +571,24 @@ export default function VehicleLog() {
 
       {myActiveCheckout && (
         <section className={`border-l-4 p-4 ${new Date(myActiveCheckout.expectedReturnAt).getTime() < now ? 'border-clay bg-clay-light' : 'border-brass bg-brass/10'}`} role="status">
-          <p className="font-semibold text-ink">{new Date(myActiveCheckout.expectedReturnAt).getTime() < now ? 'เกินกำหนดคืนรถ: ' : 'คุณมีรถที่ยังไม่ได้คืน: '}{myActiveCheckout.vehicleName} · {myActiveCheckout.plate}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="font-semibold text-ink">{new Date(myActiveCheckout.expectedReturnAt).getTime() < now ? 'เกินกำหนดคืนรถ: ' : 'คุณมีรถที่ยังไม่ได้คืน: '}{myActiveCheckout.vehicleName} · {myActiveCheckout.plate}</p>
+            <button type="button" disabled={saving} onClick={() => returnVehicle(myActiveCheckout)} className="btn-primary px-4 py-2 text-sm">{saving ? 'กำลังบันทึก...' : 'คืนรถ'}</button>
+          </div>
           <p className="mt-1 text-sm text-ink-soft">กำหนดคืน {formatDateTime(myActiveCheckout.expectedReturnAt)}</p>
+        </section>
+      )}
+
+      {lastReturnedCheckout && (
+        <section className="card flex flex-wrap items-center justify-between gap-3 p-4" role="status">
+          <div>
+            <p className="font-semibold text-ink">คืนรถเรียบร้อยแล้ว · {lastReturnedCheckout.vehicleName} · {lastReturnedCheckout.plate}</p>
+            <p className="mt-1 text-sm text-ink-soft">ดาวน์โหลดใบใช้งานรถหรือบันทึกเป็น PDF ได้</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <VehicleUsagePrint checkout={lastReturnedCheckout} />
+            <button type="button" onClick={() => setLastReturnedCheckout(null)} aria-label="ปิดใบใช้รถที่คืนแล้ว" className="grid size-11 place-items-center text-xl text-ink-soft">×</button>
+          </div>
         </section>
       )}
 
@@ -722,7 +741,6 @@ export default function VehicleLog() {
                       <p className="mt-2 text-xs text-ink-soft">เบิก {formatDateTime(item.checkoutAt)}{item.returnedAt ? ` · คืน ${formatDateTime(item.returnedAt)}` : ` · กำหนดคืน ${formatDateTime(item.expectedReturnAt)}`}</p>
                     </div>
                     <div className="flex shrink-0 gap-3">
-                      {!item.returnedAt && (isAdmin || item.employeeId === employee.id) && <button type="button" disabled={saving} onClick={() => returnVehicle(item)} className="min-h-11 px-2 text-sm font-semibold text-sage underline">คืนรถ</button>}
                       {item.returnedAt && <VehicleUsagePrint checkout={item} />}
                       {canEdit && <button type="button" onClick={() => beginEdit(item)} className="min-h-11 px-2 text-sm font-semibold text-ink-soft underline">แก้ไข</button>}
                     </div>

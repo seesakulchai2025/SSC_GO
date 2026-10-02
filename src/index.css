@@ -150,6 +150,29 @@
 }
 
 @media (max-width: 639px) {
+    .modal-frame {
+      min-width: 0;
+    }
+
+    .modal-frame .modal-scroll {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .modal-frame .modal-scroll label {
+      min-width: 0;
+    }
+
+    .input-field,
+    .modal-frame .input-field {
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 16px !important;
+    }
+
     .report-center {
       padding: 12px;
     }
