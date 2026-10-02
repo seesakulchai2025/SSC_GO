@@ -12,6 +12,35 @@ export function toISODate(date) {
   return `${year}-${month}-${day}`
 }
 
+export function parseDateValue(value) {
+  if (value == null || value === '') return null
+  if (typeof value.toDate === 'function') return value.toDate()
+  if (value instanceof Date) return value
+  if (typeof value === 'string') {
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    if (dateOnly) return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+  }
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+export function formatDateDMY(value) {
+  const date = parseDateValue(value)
+  if (!date || Number.isNaN(date.getTime())) return '-'
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${day}/${month}/${date.getFullYear() + 543}`
+}
+
+export function formatDateTimeDMY(value, { seconds = false } = {}) {
+  const date = parseDateValue(value)
+  if (!date || Number.isNaN(date.getTime())) return '-'
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const time = seconds ? `${hours}:${minutes}:${String(date.getSeconds()).padStart(2, '0')}` : `${hours}:${minutes}`
+  return `${formatDateDMY(date)} ${time}`
+}
+
 export function calcLeaveDays(startStr, endStr, holidaySet = new Set()) {
   if (!startStr || !endStr) return 0
   const start = parseISODate(startStr)
@@ -43,17 +72,14 @@ export const DURATION_LABELS = {
   half_afternoon: 'ครึ่งวันบ่าย',
 }
 
-// แสดงวันที่แบบไทย พ.ศ. เช่น 21 ส.ค. 2569
+// แสดงวันที่แบบไทย พ.ศ. ในรูปแบบ dd/mm/yyyy
 export function formatThaiDate(dateStr) {
-  if (!dateStr) return '-'
-  const d = parseISODate(dateStr)
-  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  return formatDateDMY(dateStr)
 }
 
-// แสดงวันที่แบบไทยเต็มรูปแบบ เช่น วันเสาร์ที่ 22 สิงหาคม พ.ศ. 2569
+// Alias used by document/report headings to keep the same date format.
 export function formatThaiDateLong(dateStr) {
-  const d = dateStr ? parseISODate(dateStr) : new Date()
-  return d.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return formatDateDMY(dateStr || new Date())
 }
 
 // แปลงช่วงวันที่เป็นรายการ "วันทำการ" แต่ละวัน (จ-ส ไม่รวมวันอาทิตย์และวันหยุดที่เปิดใช้งาน) — ใช้ทำปฏิทินทีม

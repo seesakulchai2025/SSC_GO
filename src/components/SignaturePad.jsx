@@ -8,7 +8,7 @@ export default function SignaturePad({ initialData, onChange }) {
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    ctx.strokeStyle = '#1B2A4A'
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim()
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'

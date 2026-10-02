@@ -10,6 +10,14 @@ function explainError(action, error) {
   return `${action}ไม่สำเร็จ (${error.message || 'unknown'})`
 }
 
+function getVehicleNameParts(vehicle) {
+  const legacyParts = (vehicle.name || '').trim().split(/\s+/).filter(Boolean)
+  const brand = vehicle.brand?.trim() || legacyParts.shift() || ''
+  if (vehicle.brand && legacyParts[0] === brand) legacyParts.shift()
+  const model = vehicle.model?.trim() || legacyParts.join(' ')
+  return { brand, model }
+}
+
 export default function AdminVehicles() {
   const [vehicles, setVehicles] = useState([])
   const [maxHours, setMaxHours] = useState(8)
@@ -28,9 +36,12 @@ export default function AdminVehicles() {
 
   async function saveVehicle(event) {
     event.preventDefault()
-    const name = editing.name.trim()
+    const brand = editing.brand.trim()
+    const model = editing.model.trim()
+    const name = [brand, model].filter(Boolean).join(' ')
     const plate = editing.plate.trim()
-    if (!name || !plate) return
+    const insuranceExpiry = editing.insuranceExpiry || null
+    if (!brand || !plate) return
     if (vehicles.some((item) => item.id !== editing.id && item.plate.toLocaleLowerCase() === plate.toLocaleLowerCase())) {
       notifyError('เลขทะเบียนนี้มีอยู่ในระบบแล้ว')
       return
@@ -38,10 +49,10 @@ export default function AdminVehicles() {
     setSaving(true)
     try {
       if (editing.id) {
-        await updateDoc(doc(db, 'vehicles', editing.id), { name, plate, updatedAt: serverTimestamp() })
+        await updateDoc(doc(db, 'vehicles', editing.id), { name, brand, model, plate, insuranceExpiry, updatedAt: serverTimestamp() })
         notifySuccess('แก้ไขข้อมูลรถเรียบร้อยแล้ว')
       } else {
-        await addDoc(collection(db, 'vehicles'), { name, plate, active: true, activeCheckoutId: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
+        await addDoc(collection(db, 'vehicles'), { name, brand, model, plate, insuranceExpiry, active: true, activeCheckoutId: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
         notifySuccess('เพิ่มรถเรียบร้อยแล้ว')
       }
       setEditing(null)
@@ -100,12 +111,14 @@ export default function AdminVehicles() {
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="font-display text-lg font-semibold text-ink">รายชื่อรถ ({vehicles.length})</h2>
-          <button type="button" onClick={() => setEditing({ id: null, name: '', plate: '' })} className="btn-primary px-4 py-2 text-sm">+ เพิ่มรถ</button>
+          <button type="button" onClick={() => setEditing({ id: null, brand: '', model: '', plate: '', insuranceExpiry: '' })} className="btn-primary px-4 py-2 text-sm">+ เพิ่มรถ</button>
         </div>
         {editing && (
           <form onSubmit={saveVehicle} className="card mb-4 grid gap-3 p-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-ink">ชื่อรถ<input value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} className="input-field mt-1" placeholder="เช่น กระบะ 1" required /></label>
+            <label className="text-sm font-medium text-ink">ยี่ห้อ<input value={editing.brand} onChange={(event) => setEditing({ ...editing, brand: event.target.value })} className="input-field mt-1" placeholder="เช่น TOYOTA" required /></label>
+            <label className="text-sm font-medium text-ink">รุ่น<input value={editing.model} onChange={(event) => setEditing({ ...editing, model: event.target.value })} className="input-field mt-1" placeholder="เช่น VIGO" /></label>
             <label className="text-sm font-medium text-ink">เลขทะเบียน<input value={editing.plate} onChange={(event) => setEditing({ ...editing, plate: event.target.value })} className="input-field mt-1" placeholder="เช่น กข 1234" required /></label>
+            <label className="text-sm font-medium text-ink">วันที่ประกันหมดอายุ<input type="date" value={editing.insuranceExpiry || ''} onChange={(event) => setEditing({ ...editing, insuranceExpiry: event.target.value })} className="input-field mt-1" /></label>
             <div className="flex gap-2 sm:col-span-2"><button disabled={saving} className="btn-primary px-4 py-2 text-sm">{saving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}</button><button type="button" onClick={() => setEditing(null)} className="btn-secondary px-4 py-2 text-sm">ยกเลิก</button></div>
           </form>
         )}
@@ -114,7 +127,7 @@ export default function AdminVehicles() {
             {vehicles.map((vehicle) => (
               <div key={vehicle.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div className="min-w-0"><p className="font-semibold text-ink">{vehicle.name} <span className="font-mono text-sm font-normal text-ink-soft">· {vehicle.plate}</span></p><p className={`mt-1 text-xs ${vehicle.active === false ? 'text-ink-soft' : vehicle.activeCheckoutId ? 'text-clay' : 'text-sage'}`}>{vehicle.active === false ? 'ปิดใช้งาน' : vehicle.activeCheckoutId ? 'กำลังมีผู้ใช้งาน' : 'พร้อมใช้งาน'}</p></div>
-                <div className="flex gap-3"><button type="button" onClick={() => setEditing({ id: vehicle.id, name: vehicle.name, plate: vehicle.plate })} className="text-sm font-semibold text-ink-soft underline">แก้ไข</button><button type="button" onClick={() => toggleVehicle(vehicle)} className={`text-sm font-semibold underline ${vehicle.active === false ? 'text-sage' : 'text-clay'}`}>{vehicle.active === false ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</button></div>
+                <div className="flex gap-3"><button type="button" onClick={() => setEditing({ id: vehicle.id, ...getVehicleNameParts(vehicle), plate: vehicle.plate, insuranceExpiry: vehicle.insuranceExpiry || '' })} className="text-sm font-semibold text-ink-soft underline">แก้ไข</button><button type="button" onClick={() => toggleVehicle(vehicle)} className={`text-sm font-semibold underline ${vehicle.active === false ? 'text-sage' : 'text-clay'}`}>{vehicle.active === false ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</button></div>
               </div>
             ))}
           </div>

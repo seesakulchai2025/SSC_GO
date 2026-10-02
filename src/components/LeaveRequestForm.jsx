@@ -144,7 +144,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
                 type="button"
                 key={d.id}
                 onClick={() => setDuration(d.id)}
-                className={`py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${
+                className={`min-h-11 rounded-lg px-2 text-sm font-semibold border-2 transition-colors ${
                   duration === d.id ? 'bg-ink text-paper border-ink' : 'bg-white text-ink-soft border-ink/15'
                 }`}
               >
@@ -171,7 +171,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
           type="file"
           accept="image/*,application/pdf"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="text-sm text-ink-soft file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-ink file:text-paper file:text-sm file:font-semibold file:cursor-pointer"
+          className="min-h-11 text-sm text-ink-soft file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-ink file:text-paper file:text-sm file:font-semibold file:cursor-pointer"
         />
       </div>
 

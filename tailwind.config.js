@@ -4,40 +4,53 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: '#FAF7EF',
-        paperDark: '#F0EBDD',
+        white: 'rgb(var(--color-card-rgb) / <alpha-value>)',
+        paper: 'rgb(var(--color-bg-rgb) / <alpha-value>)',
+        paperDark: 'var(--color-bg-muted)',
         ink: {
-          DEFAULT: '#1B2A4A',
-          light: '#2E4066',
-          soft: '#5A6B8C',
+          DEFAULT: 'rgb(var(--color-primary-rgb) / <alpha-value>)',
+          light: 'var(--color-primary-light)',
+          soft: 'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
         },
         brass: {
-          DEFAULT: '#C89B3C',
-          light: '#E0BE6E',
-          dark: '#9C761F',
+          DEFAULT: 'rgb(var(--color-accent-rgb) / <alpha-value>)',
+          light: 'var(--color-accent-soft)',
+          dark: 'var(--color-accent-dark)',
         },
         sage: {
-          DEFAULT: '#4A7C59',
-          light: '#E8F0E8',
+          DEFAULT: 'var(--color-approved-text)',
+          light: 'var(--color-approved-bg)',
         },
         clay: {
-          DEFAULT: '#B5533C',
-          light: '#F5E4DE',
+          DEFAULT: 'var(--color-rejected-text)',
+          light: 'var(--color-rejected-bg)',
+        },
+        pending: {
+          DEFAULT: 'var(--color-pending-text)',
+          light: 'var(--color-pending-bg)',
+        },
+        cancelled: 'var(--color-cancelled-bg)',
+        text: {
+          DEFAULT: 'rgb(var(--color-text-rgb) / <alpha-value>)',
+          muted: 'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
+        },
+        border: {
+          DEFAULT: 'rgb(var(--color-border-rgb) / <alpha-value>)',
         },
         slate: {
-          text: '#3D4A5C',
+          text: 'var(--color-text-muted)',
         },
       },
       fontFamily: {
-        display: ['"Noto Serif Thai"', 'serif'],
-        body: ['"IBM Plex Sans Thai"', '"Noto Sans Thai"', 'sans-serif'],
+        display: ['"Noto Sans Thai"', 'sans-serif'],
+        body: ['"Noto Sans Thai"', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
       boxShadow: {
-        stamp: '0 2px 0 rgba(27,42,74,0.08), 0 8px 20px -8px rgba(27,42,74,0.25)',
+        stamp: '0 1px 3px rgb(var(--color-text-rgb) / 8%)',
       },
       borderRadius: {
-        card: '10px',
+        card: '14px',
       },
     },
   },

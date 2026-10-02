@@ -6,7 +6,6 @@ import { useAdminPendingCount } from '../hooks/useAdminPendingCount'
 import ProfileModal from './ProfileModal'
 
 const ADMIN_NAV_ITEMS = [
-  { to: '/admin', end: true, label: 'อนุมัติ', badge: 'pending' },
   { to: '/admin/employees', end: false, label: 'พนักงาน' },
   { to: '/admin/payroll', end: false, label: 'เงินเดือน' },
 ]
@@ -33,7 +32,7 @@ export default function Navbar() {
       isActive ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5 hover:text-ink'
     }`
   function handleNavigation(to) {
-    if (to === '/') markAllSeen()
+    if (to === '/leave') markAllSeen()
     setMenuOpen(false)
   }
 
@@ -42,6 +41,9 @@ export default function Navbar() {
       <>
         <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase text-ink-soft/70">การใช้งาน</p>
         <NavLink to="/" end className={linkClass} onClick={() => handleNavigation('/')}>
+          หน้าหลัก
+        </NavLink>
+        <NavLink to="/leave" className={linkClass} onClick={() => handleNavigation('/leave')}>
           <span>ลงวันลา</span>
           <Badge count={badgeFor('unseen')} />
         </NavLink>
@@ -63,7 +65,6 @@ export default function Navbar() {
               </NavLink>
             ))}
             <NavLink to="/admin/vehicles" className={linkClass} onClick={() => handleNavigation('/admin/vehicles')}>จัดการรถบริษัท</NavLink>
-            <NavLink to="/admin/vehicle-reports" className={linkClass} onClick={() => handleNavigation('/admin/vehicle-reports')}>รายงานใช้รถ</NavLink>
             <NavLink to="/calendar" end className={linkClass} onClick={() => handleNavigation('/calendar')}>ปฏิทิน</NavLink>
             <NavLink to="/admin/reports" className={linkClass} onClick={() => handleNavigation('/admin/reports')}>รายงาน</NavLink>
           </>
@@ -75,11 +76,11 @@ export default function Navbar() {
   function AccountActions({ mobile = false }) {
     return (
       <div className={`border-ink/10 ${mobile ? 'border-t p-3' : 'border-t p-4'}`}>
-        <button onClick={() => setShowProfile(true)} className="mb-2 block w-full truncate text-left text-sm font-semibold text-ink hover:underline">
+        <button onClick={() => setShowProfile(true)} className="mb-2 block min-h-11 w-full truncate py-2 text-left text-sm font-semibold text-ink hover:underline">
           {employee?.name || 'บัญชีของฉัน'}
         </button>
         {employee?.department && <p className="mb-3 truncate text-xs text-ink-soft">{employee.department}</p>}
-        <button onClick={logout} className="w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-clay hover:bg-clay-light">
+        <button onClick={logout} className="min-h-11 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-clay hover:bg-clay-light">
           ออกจากระบบ
         </button>
       </div>
@@ -101,7 +102,7 @@ export default function Navbar() {
 
       <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <button onClick={() => setMenuOpen(true)} className="shrink-0 p-1 text-ink" aria-label="เปิดเมนู">
+          <button onClick={() => setMenuOpen(true)} className="grid size-11 shrink-0 place-items-center p-0 text-ink" aria-label="เปิดเมนู">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
@@ -110,7 +111,7 @@ export default function Navbar() {
           </button>
           <span className="truncate font-display font-semibold text-ink">ระบบพนักงานสีสกุลไชย</span>
         </div>
-        <button onClick={() => setShowProfile(true)} className="max-w-[45%] truncate text-sm text-ink-soft underline decoration-dotted">
+        <button onClick={() => setShowProfile(true)} className="min-h-11 max-w-[45%] truncate px-2 text-sm text-ink-soft underline decoration-dotted">
           {employee?.name}
         </button>
       </header>

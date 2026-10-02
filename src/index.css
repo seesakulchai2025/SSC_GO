@@ -2,20 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: #1B2A4A;
+  --color-primary-rgb: 27 42 74;
+  --color-primary-light: #2E4066;
+  --color-accent: #14B8A6;
+  --color-accent-rgb: 20 184 166;
+  --color-accent-hover: #0F9488;
+  --color-accent-dark: #0F766E;
+  --color-bg: #F5F7FA;
+  --color-bg-rgb: 245 247 250;
+  --color-bg-muted: #EDF2F7;
+  --color-card: #FFFFFF;
+  --color-card-rgb: 255 255 255;
+  --color-text: #0F172A;
+  --color-text-rgb: 15 23 42;
+  --color-text-muted: #64748B;
+  --color-text-muted-rgb: 100 116 139;
+  --color-border: #E2E8F0;
+  --color-border-rgb: 226 232 240;
+  --color-approved: #16A34A;
+  --color-approved-text: #166534;
+  --color-approved-bg: #DCFCE7;
+  --color-pending: #F59E0B;
+  --color-pending-text: #92400E;
+  --color-pending-bg: #FEF3C7;
+  --color-rejected: #EF4444;
+  --color-rejected-text: #B91C1C;
+  --color-rejected-bg: #FEE2E2;
+  --color-accent-soft: #CCFBF1;
+  --color-cancelled-bg: #F1F5F9;
+}
+
 @layer base {
   html, body {
-    font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif;
-    background-color: #FAF7EF;
-    color: #1B2A4A;
+    font-family: 'Noto Sans Thai', sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
   }
   h1, h2, h3, .font-display {
-    font-family: 'Noto Serif Thai', serif;
+    font-family: 'Noto Sans Thai', sans-serif;
   }
   * {
     -webkit-tap-highlight-color: transparent;
   }
   :focus-visible {
-    outline: 2px solid #C89B3C;
+    outline: 2px solid var(--color-accent-dark);
     outline-offset: 2px;
   }
 }
@@ -26,6 +58,16 @@
   }
 }
 
+@layer utilities {
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer components {
   /* The signature element: an approval "stamp" instead of a plain status pill */
   .stamp {
@@ -33,34 +75,63 @@
     transform: rotate(-2deg);
   }
   .stamp-approved {
-    @apply stamp text-sage border-sage bg-sage-light;
+    @apply stamp bg-sage-light;
+    color: var(--color-approved-text);
+    border-color: var(--color-approved);
   }
   .stamp-rejected {
-    @apply stamp text-clay border-clay bg-clay-light;
+    @apply stamp bg-clay-light;
+    color: var(--color-rejected-text);
+    border-color: var(--color-rejected);
     transform: rotate(2deg);
   }
   .stamp-pending {
-    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 border-dashed text-ink-soft border-ink-soft/50 bg-transparent;
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 border-dashed;
+    color: var(--color-pending-text);
+    border-color: var(--color-pending);
+    background-color: var(--color-pending-bg);
   }
   .stamp-cancelled {
-    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 text-ink-soft/70 border-ink-soft/30 bg-ink-soft/5 line-through;
+    @apply inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold tracking-wide font-mono uppercase rounded-sm border-2 line-through;
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+    background-color: var(--color-cancelled-bg);
   }
 
   .card {
-    @apply bg-white rounded-card shadow-stamp border border-ink/5;
+    @apply bg-white rounded-card shadow-stamp border;
+    border-color: var(--color-border);
   }
 
   .btn-primary {
-    @apply bg-ink text-paper font-semibold rounded-lg px-5 py-3 hover:bg-ink-light active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none;
+    @apply min-h-11 font-semibold rounded-xl px-5 py-3 active:scale-[0.98] transition-colors disabled:opacity-40 disabled:pointer-events-none;
+    background-color: var(--color-accent);
+    border: 1px solid var(--color-accent);
+    color: var(--color-primary);
+  }
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+    color: var(--color-text);
   }
   .btn-secondary {
-    @apply bg-white text-ink font-semibold rounded-lg px-5 py-3 border-2 border-ink/15 hover:border-ink/30 active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none;
+    @apply min-h-11 bg-white text-ink font-semibold rounded-xl px-5 py-3 border active:scale-[0.98] transition-colors disabled:opacity-40 disabled:pointer-events-none;
+    border-color: var(--color-border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--color-accent-hover);
   }
   .btn-danger {
-    @apply bg-clay text-white font-semibold rounded-lg px-5 py-3 hover:bg-clay/90 active:scale-[0.98] transition-all;
+    @apply min-h-11 bg-clay text-white font-semibold rounded-xl px-5 py-3 hover:bg-clay/90 active:scale-[0.98] transition-colors;
   }
   .input-field {
-    @apply w-full rounded-lg border-2 border-ink/15 bg-white px-4 py-3 text-ink placeholder:text-ink-soft/50 focus:border-brass outline-none transition-colors;
+    @apply min-h-11 w-full rounded-xl border bg-white px-4 py-3 placeholder:text-ink-soft/70 outline-none transition-colors;
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+  .input-field:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgb(var(--color-accent-rgb) / 22%);
   }
 
   .modal-frame {
@@ -76,4 +147,241 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+}
+
+@media (max-width: 639px) {
+    .report-center {
+      padding: 12px;
+    }
+
+    .report-center > div:first-child {
+      margin-bottom: 8px;
+    }
+
+    .report-compact-page {
+      max-width: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .report-compact-page.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 8px;
+    }
+
+    .report-compact-employee-list.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 12px;
+    }
+
+    .report-compact-card {
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgb(var(--color-text-rgb) / 8%);
+    }
+
+    .report-compact-card.report-compact-table-frame {
+      padding: 0;
+    }
+
+    .report-compact-heading {
+      font-size: 17px;
+      line-height: 1.35;
+    }
+
+    .report-compact-description,
+    .report-compact-label {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .report-compact-eyebrow,
+    .report-compact-hide-mobile,
+    .report-compact-mobile-label-hidden {
+      display: none;
+    }
+
+    .report-compact-back {
+      min-height: 40px;
+      padding: 6px 10px !important;
+      font-size: 12px !important;
+    }
+
+    .report-compact-control {
+      min-height: 40px !important;
+      height: 40px;
+      padding: 0 10px !important;
+      font-size: 16px !important;
+      margin-top: 2px !important;
+    }
+
+    .report-compact-filter-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .report-compact-filter-grid > label {
+      min-width: 0;
+    }
+
+    .report-compact-filter-grid > button {
+      width: 100%;
+      min-width: 0;
+      min-height: 40px !important;
+      padding: 0 8px !important;
+      font-size: 12px !important;
+      white-space: nowrap;
+    }
+
+    .report-compact-filter-grid .input-field {
+      min-width: 0;
+    }
+
+    .report-compact-actions {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding-top: 0;
+    }
+
+    .report-compact-actions > * {
+      min-width: 0;
+      min-height: 40px !important;
+      padding: 0 8px !important;
+      font-size: 12px !important;
+      white-space: nowrap;
+    }
+
+    .report-compact-segmented {
+      display: grid !important;
+      width: 100%;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .report-compact-segmented > button {
+      min-width: 0;
+      min-height: 36px;
+      padding: 6px 4px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .report-compact-tabs {
+      gap: 0;
+      margin-top: 6px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+    }
+
+    .report-compact-tabs > button {
+      flex: 0 0 auto;
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .report-compact-summary {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 4px;
+      overflow-x: auto;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .report-compact-summary > * {
+      flex: 0 0 auto;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--color-bg-muted);
+    }
+
+    .report-compact-table {
+      font-size: 12px;
+    }
+
+    .report-compact-table th,
+    .report-compact-table td {
+      padding: 6px 4px;
+    }
+
+    .report-compact-empty {
+      padding-block: 12px !important;
+    }
+
+    .report-compact-card.no-print.space-y-3 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 8px;
+    }
+
+    .report-compact-page .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 12px;
+    }
+
+    .report-compact-balances > .card {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .report-compact-balances > .card > .font-display {
+      margin-bottom: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .report-compact-balances > .card .text-3xl {
+      font-size: 20px;
+      line-height: 1.25;
+    }
+
+    .report-compact-balances > .card .text-3xl span {
+      font-size: 11px;
+    }
+
+    .report-compact-balances > .card .h-1\.5 {
+      height: 4px;
+      margin-top: 6px;
+    }
+
+    .report-compact-balances > .card .font-mono.text-xs {
+      margin-top: 4px;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .report-compact-attendance-table {
+      font-size: 12px;
+    }
+
+    .report-compact-attendance-table th,
+    .report-compact-attendance-table td {
+      padding: 4px 3px;
+    }
+
+    .report-compact-attendance-table th:first-child,
+    .report-compact-attendance-table td:first-child {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: white;
+      box-shadow: 2px 0 4px rgb(var(--color-text-rgb) / 8%);
+    }
+
+    .report-compact-attendance-table tbody tr {
+      height: 40px;
+    }
+
+    .report-compact-attendance-event {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .report-compact-attendance-event a {
+      font-size: 10px;
+    }
 }

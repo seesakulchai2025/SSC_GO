@@ -63,7 +63,7 @@ export default function AdminReports() {
     : period === 'year'
       ? `ปี ${Number(periodDate) + 543}`
       : period === 'month'
-        ? new Date(`${periodDate}-01`).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
+        ? formatThaiDate(`${periodDate}-01`)
         : formatThaiDate(periodDate)
 
   useEffect(() => {
@@ -187,8 +187,8 @@ export default function AdminReports() {
       ชื่อพนักงาน: r.employeeName,
       แผนก: r.department || '',
       ประเภทการลา: r.leaveTypeName,
-      วันที่เริ่ม: r.startDate,
-      วันที่สิ้นสุด: r.endDate,
+      วันที่เริ่ม: formatThaiDate(r.startDate),
+      วันที่สิ้นสุด: formatThaiDate(r.endDate),
       ลักษณะ: r.duration && r.duration !== 'full' ? DURATION_LABELS[r.duration] : 'เต็มวัน',
       จำนวนวันในงวด: r.reportDays,
       สถานะ: STATUS_LABELS[r.status] || r.status,
@@ -207,13 +207,13 @@ export default function AdminReports() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <h1 className="no-print font-display text-2xl font-semibold text-ink">รายงานวันลาเพื่อคำนวณเงินเดือน</h1>
+    <div className="report-compact-page max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <h1 className="report-compact-heading no-print font-display text-2xl font-semibold text-ink">รายงานวันลาเพื่อคำนวณเงินเดือน</h1>
 
-      <div className="card p-4 space-y-3 no-print">
+      <div className="report-compact-card card p-4 space-y-3 no-print">
         <div>
-          <label className="text-sm text-ink-soft mb-1 block">ช่วงเวลารายงาน</label>
-          <div className="grid grid-cols-3 gap-2" role="group" aria-label="เลือกช่วงเวลารายงาน">
+          <label className="report-compact-label report-compact-mobile-label-hidden text-sm text-ink-soft mb-1 block">ช่วงเวลารายงาน</label>
+          <div className="report-compact-segmented grid grid-cols-3 gap-2" role="group" aria-label="เลือกช่วงเวลารายงาน">
             {[
               { id: 'day', label: 'รายวัน' },
               { id: 'month', label: 'รายเดือน' },
@@ -231,50 +231,50 @@ export default function AdminReports() {
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-ink-soft mb-1 block">{period === 'day' ? 'วันที่' : period === 'month' ? 'เดือน' : 'ปี ค.ศ.'}</label>
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="order-1 min-w-0">
+            <label className="report-compact-label text-sm text-ink-soft mb-1 block">{period === 'day' ? 'วันที่' : period === 'month' ? 'เดือน' : 'ปี ค.ศ.'}</label>
             <input
               type={period === 'day' ? 'date' : period === 'month' ? 'month' : 'number'}
               min={period === 'year' ? '2000' : undefined}
               max={period === 'year' ? '2100' : undefined}
               value={periodDate}
               onChange={(e) => setPeriodDate(e.target.value)}
-              className="input-field"
+              className="report-compact-control input-field"
               aria-label={period === 'day' ? 'วันที่รายงาน' : period === 'month' ? 'เดือนที่รายงาน' : 'ปีที่รายงาน ค.ศ.'}
             />
           </div>
-          <div>
-            <label className="text-sm text-ink-soft mb-1 block">สถานะ</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input-field">
+          <div className="col-span-2 order-3 min-w-0 sm:col-span-1 sm:order-2">
+            <label className="report-compact-label text-sm text-ink-soft mb-1 block">สถานะ</label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="report-compact-control input-field">
               {STATUS_OPTIONS.map((status) => (
                 <option key={status.id} value={status.id}>{status.label}</option>
               ))}
             </select>
           </div>
-          <div>
-            <label className="text-sm text-ink-soft mb-1 block">ประเภทการลา</label>
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input-field">
+          <div className="order-2 min-w-0 sm:order-3">
+            <label className="report-compact-label text-sm text-ink-soft mb-1 block">ประเภทการลา</label>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="report-compact-control input-field">
               <option value="">ทุกประเภท</option>
               {leaveTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}
             </select>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 pt-2">
-          <button onClick={handleExportExcel} className="btn-primary py-2 px-4 text-sm">⬇ ส่งออกเป็น Excel</button>
-          <button onClick={() => { window.print(); notifySuccess('เปิดหน้าต่างพิมพ์หรือบันทึก PDF แล้ว') }} className="btn-secondary py-2 px-4 text-sm">🖨 พิมพ์ / บันทึกเป็น PDF</button>
+        <div className="report-compact-actions flex flex-wrap gap-2 pt-2">
+          <button onClick={handleExportExcel} className="btn-primary py-2 px-4 text-sm"><span className="hidden sm:inline">⬇ ส่งออกเป็น Excel</span><span className="sm:hidden">⬇ Excel</span></button>
+          <button onClick={() => { window.print(); notifySuccess('เปิดหน้าต่างพิมพ์หรือบันทึก PDF แล้ว') }} className="btn-secondary py-2 px-4 text-sm"><span className="hidden sm:inline">🖨 พิมพ์ / บันทึกเป็น PDF</span><span className="sm:hidden">🖨 PDF</span></button>
         </div>
       </div>
 
       <section className="report-print-section">
-        <header className="mb-4">
-          <h1 className="font-display font-semibold text-ink text-lg">รายงานวันลาเพื่อคำนวณเงินเดือน</h1>
-          <p className="text-sm text-ink-soft">{periodLabel} · ช่วงวันที่ {formatThaiDate(dateFrom)} – {formatThaiDate(dateTo)} · พิมพ์เมื่อ {formatThaiDateLong()}</p>
+        <header className="mb-3">
+          <h1 className="hidden font-display text-lg font-semibold text-ink print:block">รายงานวันลาเพื่อคำนวณเงินเดือน</h1>
+          <p className="report-compact-description text-sm text-ink-soft">{periodLabel} · ช่วงวันที่ {formatThaiDate(dateFrom)} – {formatThaiDate(dateTo)} · พิมพ์เมื่อ {formatThaiDateLong()}</p>
         </header>
 
-        <div className="card report-print-card overflow-x-auto">
+        <div className="report-compact-card report-compact-table-frame card report-print-card overflow-x-auto">
           <div className="border-b border-ink/10 px-3 py-2 font-semibold text-ink">สรุปการลาแยกตามประเภท</div>
-          <table className="w-full text-sm">
+          <table className="report-compact-table min-w-[520px] w-full text-sm sm:min-w-0">
             <thead>
               <tr className="border-b border-ink/10 text-left text-ink-soft">
                 <th className="p-3 font-semibold">พนักงาน</th>
@@ -321,8 +321,8 @@ export default function AdminReports() {
         </div>
       </section>
 
-      <section className="card report-print-section report-print-card overflow-x-auto">
-        <table className="w-full text-sm">
+      <section className="report-compact-card report-compact-table-frame card report-print-section report-print-card overflow-x-auto">
+        <table className="report-compact-table min-w-[520px] w-full text-sm sm:min-w-0">
           <thead>
             <tr className="border-b border-ink/10 text-left text-ink-soft">
               <th className="p-3 font-semibold">พนักงาน</th>
@@ -356,17 +356,17 @@ export default function AdminReports() {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 12mm; }
-          body { background: #fff !important; color: #111 !important; }
+          body { background: var(--color-card) !important; color: var(--color-text) !important; }
           .no-print { display: none !important; }
           .lg\\:pl-64 { padding-left: 0 !important; }
           .report-print-section + .report-print-section { break-before: page; page-break-before: always; }
           .report-print-section { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
-          .report-print-card { overflow: visible !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; }
+          .report-print-card { overflow: visible !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: var(--color-card) !important; }
           .report-print-card table { width: 100% !important; border-collapse: collapse !important; font-size: 9pt !important; }
           .report-print-card thead { display: table-header-group; }
           .report-print-card tr { break-inside: avoid; page-break-inside: avoid; }
           .report-print-card th, .report-print-card td { padding: 5px 4px !important; }
-          .report-print-section p, .report-print-section th, .report-print-section td { color: #111 !important; }
+          .report-print-section p, .report-print-section th, .report-print-section td { color: var(--color-text) !important; }
         }
       `}</style>
     </div>

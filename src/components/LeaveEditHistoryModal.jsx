@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
-import { DURATION_LABELS, formatThaiDate, todayISO, toISODate } from '../utils/dateUtils'
+import { DURATION_LABELS, formatDateTimeDMY, formatThaiDate, todayISO, toISODate } from '../utils/dateUtils'
 
 const PERIOD_OPTIONS = [
   { id: 'day', label: 'รายวัน' },
@@ -32,7 +32,7 @@ function changedAt(log) {
   return null
 }
 
-export default function LeaveEditHistoryModal({ onClose }) {
+export default function LeaveEditHistoryModal({ onClose, embedded = false }) {
   const today = todayISO()
   const [mode, setMode] = useState('month')
   const [selectedDay, setSelectedDay] = useState(today)
@@ -63,17 +63,17 @@ export default function LeaveEditHistoryModal({ onClose }) {
   }), [logs, mode, selectedDay, selectedMonth, selectedYear])
 
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-3 py-4 sm:px-6" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-labelledby="leave-edit-history-title" onClick={(event) => event.stopPropagation()} className="card modal-frame w-full max-w-3xl">
-        <header className="flex items-start justify-between gap-4 border-b border-ink/10 px-4 py-4 sm:px-6">
+    <div className={embedded ? '' : 'no-print fixed inset-0 z-50 flex items-center justify-center bg-ink/50 px-3 py-4 sm:px-6'} onClick={embedded ? undefined : onClose}>
+      <section role={embedded ? undefined : 'dialog'} aria-modal={embedded ? undefined : 'true'} aria-labelledby={embedded ? undefined : 'leave-edit-history-title'} onClick={(event) => event.stopPropagation()} className={embedded ? 'space-y-4' : 'card modal-frame w-full max-w-3xl'}>
+        {!embedded && <header className="flex items-start justify-between gap-4 border-b border-ink/10 px-4 py-4 sm:px-6">
           <div>
             <h2 id="leave-edit-history-title" className="font-display text-xl font-semibold text-ink">ประวัติการแก้ไขใบลา</h2>
             <p className="mt-1 text-sm text-ink-soft">แสดงเวลา ผู้แก้ไข และข้อมูลก่อน/หลังการแก้ไข</p>
           </div>
           <button type="button" onClick={onClose} aria-label="ปิดประวัติการแก้ไข" className="shrink-0 px-2 text-2xl leading-none text-ink-soft">×</button>
-        </header>
+        </header>}
 
-        <div className="modal-scroll space-y-4 px-4 py-4 sm:px-6">
+        <div className={embedded ? 'space-y-4' : 'modal-scroll space-y-4 px-4 py-4 sm:px-6'}>
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex rounded-md border border-ink/15 p-1" role="group" aria-label="ช่วงเวลาประวัติ">
               {PERIOD_OPTIONS.map((option) => (
@@ -114,7 +114,7 @@ export default function LeaveEditHistoryModal({ onClose }) {
                       <p className="font-semibold text-ink">{log.employeeName || 'ไม่ระบุพนักงาน'} <span className="font-normal text-ink-soft">· {log.department || 'ไม่ระบุแผนก'}</span></p>
                       <p className="mt-0.5 text-xs text-ink-soft">วันที่ลา {formatThaiDate(log.leaveDate)} · แก้ไขโดย {log.changedByName || 'ไม่ระบุ'}</p>
                     </div>
-                    <time className="text-xs text-ink-soft">{timestamp?.toLocaleString('th-TH') || '-'}</time>
+                    <time className="text-xs text-ink-soft">{timestamp ? formatDateTimeDMY(timestamp, { seconds: true }) : '-'}</time>
                   </div>
                   <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     {fields.map((field) => (
@@ -134,9 +134,9 @@ export default function LeaveEditHistoryModal({ onClose }) {
           </div>
         </div>
 
-        <footer className="flex justify-end border-t border-ink/10 px-4 py-3 sm:px-6">
+        {!embedded && <footer className="flex justify-end border-t border-ink/10 px-4 py-3 sm:px-6">
           <button type="button" onClick={onClose} className="btn-secondary py-2 px-4 text-sm">ปิด</button>
-        </footer>
+        </footer>}
       </section>
     </div>
   )

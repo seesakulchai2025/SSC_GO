@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, deleteDoc, doc, getDoc, onSnapshot, runTransaction, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { todayISO } from '../utils/dateUtils'
+import { formatDateDMY, todayISO } from '../utils/dateUtils'
 import { parseGoogleMapsCoordinates } from '../utils/googleMaps'
 import { ATTENDANCE_EVENTS, calculateAttendanceLateMinutes, calculateOvertimeMinutes, getAttendanceEvents, getNextAttendanceEvent, isScheduledCheckInOpen } from '../utils/attendanceUtils'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
@@ -42,14 +42,11 @@ function formatTime(value) {
 }
 
 function formatDate(value) {
-  if (!value) return '-'
-  return new Date(`${value}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  return formatDateDMY(value)
 }
 
 function formatShortDate(value) {
-  if (!value) return '-'
-  const [year, month, day] = value.split('-')
-  return `${day}/${month}/${year.slice(-2)}`
+  return formatDateDMY(value)
 }
 
 function attendanceDateTime(date, time) {
@@ -337,7 +334,7 @@ export default function Attendance({ embedded = false }) {
         return { lateMinutes, totalDeduction }
       })
       const successMessage = result.lateMinutes > 0
-        ? `${nextEvent.label}แล้ว สาย ${result.lateMinutes} นาที หัก ${result.lateMinutes} บาท`
+        ? `${nextEvent.label}แล้ว สาย ${result.lateMinutes} นาที`
         : `${nextEvent.label}เรียบร้อย`
       setMessage(successMessage)
       notifySuccess(successMessage)

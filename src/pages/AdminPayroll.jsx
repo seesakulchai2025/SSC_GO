@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useHolidays } from '../context/HolidaysContext'
 import { getAttendanceEvents } from '../utils/attendanceUtils'
+import { formatThaiDate } from '../utils/dateUtils'
 import { calculateSpecialPay, defaultPayrollPeriod, getMonthlyLeaveSummary, isPayrollClosingDay, isPayrollPeriodClosed } from '../utils/payrollUtils'
 import PayrollSlipModal from '../components/PayrollSlipModal'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
@@ -38,15 +39,11 @@ export default function AdminPayroll() {
   const [leaveRequests, setLeaveRequests] = useState([])
   const [leaveTypes, setLeaveTypes] = useState([])
   const [payrollProfiles, setPayrollProfiles] = useState([])
-  const [payrollRecords, setPayrollRecords] = useState([])
   const [payrollSnapshot, setPayrollSnapshot] = useState(null)
-  const [draftWorkDays, setDraftWorkDays] = useState({})
   const [employeesLoaded, setEmployeesLoaded] = useState(false)
   const [attendanceLoaded, setAttendanceLoaded] = useState(false)
   const [leaveTypesLoaded, setLeaveTypesLoaded] = useState(false)
   const [payrollProfilesLoaded, setPayrollProfilesLoaded] = useState(false)
-  const [payrollLoaded, setPayrollLoaded] = useState(false)
-  const [savingId, setSavingId] = useState('')
   const [error, setError] = useState('')
   const [slipEmployeeId, setSlipEmployeeId] = useState('')
   const closeAttempted = useRef(new Set())
@@ -106,27 +103,6 @@ export default function AdminPayroll() {
 
   useEffect(() => {
     if (!period) {
-      setPayrollRecords([])
-      setPayrollLoaded(true)
-      return undefined
-    }
-    setPayrollLoaded(false)
-    const payrollQuery = query(collection(db, 'payrollRecords'), where('period', '==', period))
-    return onSnapshot(
-      payrollQuery,
-      (snapshot) => {
-        setPayrollRecords(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
-        setPayrollLoaded(true)
-      },
-      () => {
-        setError('โหลดจำนวนวันทำงานที่บันทึกไว้ไม่สำเร็จ')
-        setPayrollLoaded(true)
-      }
-    )
-  }, [period])
-
-  useEffect(() => {
-    if (!period) {
       setPayrollSnapshot(null)
       return undefined
     }
@@ -135,48 +111,12 @@ export default function AdminPayroll() {
     }, () => setError('โหลด snapshot เงินเดือนไม่สำเร็จ'))
   }, [period])
 
-  async function saveWorkDays(employeeId) {
-    const recordId = `${period}_${employeeId}`
-    const value = draftWorkDays[recordId]
-    const workDays = Number(value)
-    if (!period || value === '' || !Number.isFinite(workDays) || workDays < 0 || workDays > 31) {
-      const message = 'กรุณากรอกจำนวนวันทำงานตั้งแต่ 0 ถึง 31 วัน'
-      setError(message)
-      notifyError(message)
-      return
-    }
-    setSavingId(recordId)
-    setError('')
-    try {
-      await setDoc(doc(db, 'payrollRecords', recordId), {
-        period,
-        employeeId,
-        workDays,
-        updatedBy: admin.id,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-      setDraftWorkDays((current) => {
-        const next = { ...current }
-        delete next[recordId]
-        return next
-      })
-      notifySuccess('บันทึกจำนวนวันทำงานแล้ว')
-    } catch (error) {
-      const message = `บันทึกจำนวนวันทำงานไม่สำเร็จ (${error.code || error.message || 'unknown'})`
-      setError(message)
-      notifyError(message)
-    } finally {
-      setSavingId('')
-    }
-  }
-
   const periodAttendance = period
     ? attendance.filter((record) => record.attendanceDate?.startsWith(period))
     : []
   const periodIsClosed = isPayrollPeriodClosed(period)
   const leaveSummaryByEmployee = getMonthlyLeaveSummary(leaveRequests, employees, leaveTypes, period, holidayDates)
   const payrollProfileByEmployee = new Map(payrollProfiles.map((profile) => [profile.id, profile]))
-  const payrollByEmployee = new Map(payrollRecords.map((record) => [record.employeeId, record]))
   const showWorkDaysColumn = employees.some((employee) => {
     if (employee.role === 'admin') return false
     const status = employee.employmentStatus || payrollProfileByEmployee.get(employee.id)?.employmentStatus
@@ -200,8 +140,7 @@ export default function AdminPayroll() {
       const companyPaidSalary = employmentStatus === 'permanent_pc'
       const baseSalary = Number(payrollProfile.baseSalary) || 0
       const dailyWage = employmentStatus === 'intern' || employmentStatus === 'probation'
-      const savedWorkDays = payrollByEmployee.get(employee.id)?.workDays
-      const workDays = dailyWage ? savedWorkDays : attendanceDays
+      const workDays = dailyWage ? attendanceDays : null
       const salaryConfigured = companyPaidSalary || (Boolean(EMPLOYMENT_STATUS_LABELS[employmentStatus]) && baseSalary > 0)
       const basePay = companyPaidSalary ? 0 : salaryConfigured && workDays != null
         ? dailyWage ? baseSalary * workDays : baseSalary
@@ -244,16 +183,9 @@ export default function AdminPayroll() {
     })
   useEffect(() => {
     if (!period || !isPayrollClosingDay() || period !== defaultPayrollPeriod() || payrollSnapshot) return
-    if (!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded || !payrollLoaded) return
+    if (!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded) return
     if (closeAttempted.current.has(period)) return
 
-    const missingWorkDays = rows.filter((row) => row.dailyWage && row.workDays == null)
-    if (missingWorkDays.length > 0) {
-      const message = 'ยังปิดงวดไม่ได้ กรุณากรอกจำนวนวันทำงานของพนักงานฝึกงาน/ทดลองงานให้ครบ'
-      setError(message)
-      notifyError(message)
-      return
-    }
     if (rows.some((row) => row.netPay == null)) {
       const message = 'ยังปิดงวดไม่ได้ กรุณากำหนดสถานะและฐานเงินเดือนของพนักงานให้ครบ'
       setError(message)
@@ -307,7 +239,7 @@ export default function AdminPayroll() {
       }
     }
     closePayrollPeriod()
-  }, [period, payrollSnapshot, employeesLoaded, attendanceLoaded, leaveTypesLoaded, payrollProfilesLoaded, payrollLoaded, rows, admin.id])
+  }, [period, payrollSnapshot, employeesLoaded, attendanceLoaded, leaveTypesLoaded, payrollProfilesLoaded, rows, admin.id])
 
   const employeeRoles = new Map(employees.map((employee) => [employee.id, employee.role]))
   const displayedRows = (payrollSnapshot?.rows || rows)
@@ -360,7 +292,7 @@ export default function AdminPayroll() {
           <p className="mt-1 text-sm text-ink-soft">คำนวณจากข้อมูลพนักงานและเวลาเข้างานของงวดที่เลือก</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="hidden text-sm font-semibold text-ink print:inline">งวดเงินเดือน {new Date(`${period}-01T00:00:00`).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })}</span>
+          <span className="hidden text-sm font-semibold text-ink print:inline">งวดเงินเดือน {formatThaiDate(`${period}-01`)}</span>
           <label className="no-print flex items-center gap-3 text-sm font-semibold text-ink">
             งวดเดือน
             <input type="month" className="input-field w-auto" value={period} onChange={(event) => setPeriod(event.target.value)} />
@@ -387,7 +319,7 @@ export default function AdminPayroll() {
         </div>
       </section>
 
-      {!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded || !payrollLoaded ? (
+      {!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded ? (
         <p className="py-8 text-center text-sm text-ink-soft">กำลังโหลดข้อมูลเงินเดือน...</p>
       ) : displayedRows.length === 0 ? (
         <p className="py-8 text-center text-sm text-ink-soft">ไม่มีพนักงานที่เปิดใช้งาน</p>
@@ -411,43 +343,14 @@ export default function AdminPayroll() {
               {displayedRows.map((row) => (
                 <tr key={row.id} className="border-b border-ink/10 align-top">
                   <td className="px-3 py-3">
-                    <button type="button" className="no-print block text-left font-semibold text-ink underline decoration-dotted" aria-label={`เปิดสลิปเงินเดือน ${row.name}`} title="ดูสลิปเงินเดือน" onClick={() => setSlipEmployeeId(row.id)}>{row.name}</button>
+                    <button type="button" className="no-print block min-h-11 text-left font-semibold text-ink underline decoration-dotted" aria-label={`เปิดสลิปเงินเดือน ${row.name}`} title="ดูสลิปเงินเดือน" onClick={() => setSlipEmployeeId(row.id)}>{row.name}</button>
                     <p className="hidden font-semibold text-ink print:block">{row.name}</p>
                     <p className="mt-0.5 text-xs text-ink-soft">{EMPLOYMENT_STATUS_LABELS[row.employmentStatus] || 'ยังไม่ระบุสถานะ'}</p>
                   </td>
                   {showWorkDaysColumn && <td className="px-3 py-3 text-right">
-                    {row.dailyWage ? (() => {
-                      const recordId = `${period}_${row.id}`
-                      const savedDays = payrollSnapshot ? row.workDays : payrollByEmployee.get(row.id)?.workDays
-                      const inputValue = draftWorkDays[recordId] ?? (savedDays == null ? '' : String(savedDays))
-                      const isDirty = draftWorkDays[recordId] !== undefined && Number(inputValue) !== Number(savedDays)
-                      return (
-                        <div className="flex min-w-28 flex-col items-end gap-1">
-                          {payrollSnapshot ? <span className="font-mono">{row.workDays}</span> : <input
-                            type="number"
-                            min="0"
-                            max="31"
-                            step="0.5"
-                            className="input-field w-24 py-1 text-right font-mono"
-                            disabled={Boolean(payrollSnapshot)}
-                            aria-label={`จำนวนวันทำงานของ ${row.name}`}
-                            value={inputValue}
-                            onChange={(event) => setDraftWorkDays((current) => ({ ...current, [recordId]: event.target.value }))}
-                          />}
-                          {!payrollSnapshot && <span className="text-[10px] text-ink-soft">ลงเวลา {row.attendanceDays} วัน</span>}
-                          {isDirty && !payrollSnapshot && (
-                            <button
-                              type="button"
-                              className="btn-primary px-2 py-1 text-xs"
-                              disabled={savingId === recordId}
-                              onClick={() => saveWorkDays(row.id)}
-                            >
-                              {savingId === recordId ? 'กำลังบันทึก...' : 'บันทึก'}
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })() : <span className="font-mono">-</span>}
+                    {row.dailyWage
+                      ? <div><span className="font-mono">{payrollSnapshot ? row.workDays : row.attendanceDays}</span><p className="mt-1 text-[10px] text-ink-soft">จากเวลาเข้างาน</p></div>
+                      : <span className="font-mono">-</span>}
                   </td>}
                   <td className="px-3 py-3 text-right font-mono">{row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? 'ตั้งค่าข้อมูล' : `${money.format(row.basePay)} บาท`}</td>
                   <td className="px-3 py-3 text-right font-mono">
@@ -470,10 +373,10 @@ export default function AdminPayroll() {
         <span>ยอดรับสุทธิรวม</span>
         <span className="font-mono text-base">{money.format(displayedTotalNetPay)} บาท</span>
       </div>
-      <p className="payroll-report-note text-xs text-ink-soft">พนักงานฝึกงาน/ทดลองงานกรอกจำนวนวันทำงานเอง เบี้ยขยันประเมินเมื่อปิดงวดแล้วและมีข้อมูลลงเวลาโดยสายรวมไม่เกิน 100 นาที ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
+      <p className="payroll-report-note text-xs text-ink-soft">พนักงานฝึกงาน/ทดลองงานคำนวณวันทำงานจากรายการลงเวลาอัตโนมัติ เบี้ยขยันประเมินเมื่อปิดงวดแล้วและมีข้อมูลลงเวลาโดยสายรวมไม่เกิน 100 นาที ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
       {slipEmployeeId && <PayrollSlipModal row={displayedRows.find((item) => item.id === slipEmployeeId)} period={period} onClose={() => setSlipEmployeeId('')} />}
       <style>{`@media print { @page { size: A4 landscape; margin: 8mm; } .payroll-report-table:not(.has-workdays) .payroll-name { width: 22% !important; } .payroll-report-table:not(.has-workdays) .payroll-wage { width: 14% !important; } .payroll-report-table:not(.has-workdays) .payroll-late { width: 8% !important; } .payroll-report-table:not(.has-workdays) .payroll-special { width: 10% !important; } .payroll-report-table:not(.has-workdays) .payroll-overage { width: 12% !important; } .payroll-report-table:not(.has-workdays) .payroll-deposit, .payroll-report-table:not(.has-workdays) .payroll-social { width: 11% !important; } .payroll-report-table:not(.has-workdays) .payroll-net { width: 12% !important; } .payroll-report-table.has-workdays .payroll-name { width: 18% !important; } .payroll-report-table.has-workdays .payroll-days { width: 8% !important; } .payroll-report-table.has-workdays .payroll-wage { width: 13% !important; } .payroll-report-table.has-workdays .payroll-late { width: 7% !important; } .payroll-report-table.has-workdays .payroll-special { width: 9% !important; } .payroll-report-table.has-workdays .payroll-overage { width: 11% !important; } .payroll-report-table.has-workdays .payroll-deposit, .payroll-report-table.has-workdays .payroll-social { width: 11% !important; } .payroll-report-table.has-workdays .payroll-net { width: 12% !important; } }`}</style>
-      <style>{`@media print { @page { size: A4 portrait; margin: 8mm; } body { background: #fff !important; } main, main * { font-family: 'IBM Plex Sans Thai', sans-serif !important; letter-spacing: 0 !important; } main { max-width: none !important; padding: 0 !important; } main > :not([hidden]) ~ :not([hidden]) { margin-top: 6px !important; } main > header { align-items: center !important; gap: 8px !important; } main > header h1 { font-size: 18px !important; } main > header p { display: none !important; } .payroll-report-summary { display: block !important; padding: 2px 0 5px !important; border: 0 !important; } .payroll-configured-count, .payroll-top-total { display: none !important; } .payroll-report-summary p:first-child { font-size: 10px !important; } .payroll-report-summary p:last-child { font-size: 14px !important; } .payroll-report-table { min-width: 0 !important; width: 100% !important; table-layout: fixed !important; font-size: 10.5px !important; border: 0 !important; } .payroll-report-table thead { font-size: 10px !important; } .payroll-report-table tr, .payroll-report-table th, .payroll-report-table td { border: 0 !important; } .payroll-report-table th, .payroll-report-table td { padding: 4px 2px !important; line-height: 1.15 !important; } .payroll-report-table .payroll-name { width: 20%; } .payroll-report-table .payroll-days { width: 8%; } .payroll-report-table .payroll-wage { width: 13%; } .payroll-report-table .payroll-late { width: 8%; } .payroll-report-table .payroll-special { width: 10%; } .payroll-report-table .payroll-overage { width: 12%; } .payroll-report-table .payroll-deposit, .payroll-report-table .payroll-social { width: 12%; } .payroll-report-table .payroll-net { width: 15%; } .payroll-report-table tbody tr:nth-child(even) { background: #f5f6f6 !important; } .payroll-report-table td p { margin-top: 1px !important; font-size: 9px !important; } .payroll-report-total { display: flex !important; margin-top: 6px !important; border: 0 !important; } .payroll-report-note { display: none !important; } .overflow-x-auto { overflow: visible !important; } .no-print { display: none !important; } }`}</style>
+      <style>{`@media print { @page { size: A4 portrait; margin: 8mm; } body { background: var(--color-card) !important; } main, main * { font-family: 'Noto Sans Thai', sans-serif !important; letter-spacing: 0 !important; } main { max-width: none !important; padding: 0 !important; } main > :not([hidden]) ~ :not([hidden]) { margin-top: 6px !important; } main > header { align-items: center !important; gap: 8px !important; } main > header h1 { font-size: 18px !important; } main > header p { display: none !important; } .payroll-report-summary { display: block !important; padding: 2px 0 5px !important; border: 0 !important; } .payroll-configured-count, .payroll-top-total { display: none !important; } .payroll-report-summary p:first-child { font-size: 10px !important; } .payroll-report-summary p:last-child { font-size: 14px !important; } .payroll-report-table { min-width: 0 !important; width: 100% !important; table-layout: fixed !important; font-size: 10.5px !important; border: 0 !important; } .payroll-report-table thead { font-size: 10px !important; } .payroll-report-table tr, .payroll-report-table th, .payroll-report-table td { border: 0 !important; } .payroll-report-table th, .payroll-report-table td { padding: 4px 2px !important; line-height: 1.15 !important; } .payroll-report-table .payroll-name { width: 20%; } .payroll-report-table .payroll-days { width: 8%; } .payroll-report-table .payroll-wage { width: 13%; } .payroll-report-table .payroll-late { width: 8%; } .payroll-report-table .payroll-special { width: 10%; } .payroll-report-table .payroll-overage { width: 12%; } .payroll-report-table .payroll-deposit, .payroll-report-table .payroll-social { width: 12%; } .payroll-report-table .payroll-net { width: 15%; } .payroll-report-table tbody tr:nth-child(even) { background: var(--color-bg-muted) !important; } .payroll-report-table td p { margin-top: 1px !important; font-size: 9px !important; } .payroll-report-total { display: flex !important; margin-top: 6px !important; border: 0 !important; } .payroll-report-note { display: none !important; } .overflow-x-auto { overflow: visible !important; } .no-print { display: none !important; } }`}</style>
       <style>{`@media print { @page { size: A4 landscape; margin: 8mm; } .payroll-report-table:not(.has-workdays) .payroll-name { width: 22% !important; } .payroll-report-table:not(.has-workdays) .payroll-wage { width: 14% !important; } .payroll-report-table:not(.has-workdays) .payroll-late { width: 8% !important; } .payroll-report-table:not(.has-workdays) .payroll-special { width: 10% !important; } .payroll-report-table:not(.has-workdays) .payroll-overage { width: 12% !important; } .payroll-report-table:not(.has-workdays) .payroll-deposit, .payroll-report-table:not(.has-workdays) .payroll-social { width: 11% !important; } .payroll-report-table:not(.has-workdays) .payroll-net { width: 12% !important; } .payroll-report-table.has-workdays .payroll-name { width: 18% !important; } .payroll-report-table.has-workdays .payroll-days { width: 8% !important; } .payroll-report-table.has-workdays .payroll-wage { width: 13% !important; } .payroll-report-table.has-workdays .payroll-late { width: 7% !important; } .payroll-report-table.has-workdays .payroll-special { width: 9% !important; } .payroll-report-table.has-workdays .payroll-overage { width: 11% !important; } .payroll-report-table.has-workdays .payroll-deposit, .payroll-report-table.has-workdays .payroll-social { width: 11% !important; } .payroll-report-table.has-workdays .payroll-net { width: 12% !important; } }`}</style>
     </main>
   )

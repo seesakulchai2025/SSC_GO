@@ -1,4 +1,5 @@
 import { calculateSpecialPay } from '../utils/payrollUtils'
+import { formatThaiDate } from '../utils/dateUtils'
 import { notifyError, notifySuccess } from './ToastViewport'
 
 const money = new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -11,6 +12,7 @@ function escapeXml(value) {
 export default function PayrollSlipModal({ row, period, onClose }) {
   if (!row) return null
 
+  const periodLabel = period ? formatThaiDate(`${period}-01`) : '-'
   const amount = (value) => `${money.format(value || 0)} บาท`
   const details = [
     ['ชื่อพนักงาน', row.name],
@@ -35,7 +37,7 @@ export default function PayrollSlipModal({ row, period, onClose }) {
     try {
       const XLSX = await import('xlsx')
       const worksheet = XLSX.utils.aoa_to_sheet([
-        ['สลิปเงินเดือน', period],
+        ['สลิปเงินเดือน', periodLabel],
         ...details.map(([label, value]) => [label, value]),
       ])
       worksheet['!cols'] = [{ wch: 28 }, { wch: 36 }]
@@ -53,7 +55,12 @@ export default function PayrollSlipModal({ row, period, onClose }) {
       const y = 190 + index * 48
       return `<text x="64" y="${y}" class="label">${escapeXml(label)}</text><text x="836" y="${y}" class="value" text-anchor="end">${escapeXml(value)}</text>`
     }).join('')
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="${220 + details.length * 48}" viewBox="0 0 900 ${220 + details.length * 48}"><style>text{font-family:'IBM Plex Sans Thai',sans-serif;fill:#1b2a4a}.title{font-size:30px;font-weight:bold}.period{font-size:18px;fill:#596273}.label,.value{font-size:19px}.value{font-weight:bold}</style><rect width="100%" height="100%" fill="#fff"/><text x="64" y="72" class="title">สลิปเงินเดือน</text><text x="64" y="112" class="period">งวด ${escapeXml(period)}</text><line x1="64" y1="145" x2="836" y2="145" stroke="#d8dce2"/>${rows}<line x1="64" y1="${158 + details.length * 48}" x2="836" y2="${158 + details.length * 48}" stroke="#d8dce2"/></svg>`
+    const rootStyles = getComputedStyle(document.documentElement)
+    const primary = rootStyles.getPropertyValue('--color-primary').trim()
+    const muted = rootStyles.getPropertyValue('--color-text-muted').trim()
+    const card = rootStyles.getPropertyValue('--color-card').trim()
+    const border = rootStyles.getPropertyValue('--color-border').trim()
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="${220 + details.length * 48}" viewBox="0 0 900 ${220 + details.length * 48}"><style>text{font-family:'Noto Sans Thai',sans-serif;fill:${primary}}.title{font-size:30px;font-weight:bold}.period{font-size:18px;fill:${muted}}.label,.value{font-size:19px}.value{font-weight:bold}</style><rect width="100%" height="100%" fill="${card}"/><text x="64" y="72" class="title">สลิปเงินเดือน</text><text x="64" y="112" class="period">งวด ${escapeXml(periodLabel)}</text><line x1="64" y1="145" x2="836" y2="145" stroke="${border}"/>${rows}<line x1="64" y1="${158 + details.length * 48}" x2="836" y2="${158 + details.length * 48}" stroke="${border}"/></svg>`
     const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }))
     const image = new Image()
     image.onload = () => {
@@ -89,7 +96,7 @@ export default function PayrollSlipModal({ row, period, onClose }) {
         <header className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
           <div>
             <h2 id="payroll-slip-title" className="font-display text-lg font-semibold text-ink">สลิปเงินเดือน</h2>
-            <p className="mt-1 text-xs text-ink-soft">งวด {period}</p>
+            <p className="mt-1 text-xs text-ink-soft">งวด {periodLabel}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="ปิดสลิปเงินเดือน" className="px-2 text-xl text-ink-soft">×</button>
         </header>

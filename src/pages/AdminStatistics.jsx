@@ -43,21 +43,21 @@ export default function AdminStatistics() {
   const activeEmployees = employees.filter((e) => e.active !== false)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="report-compact-page max-w-4xl mx-auto px-4 py-6 space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">สถิติการลารายบุคคล</h1>
-        <p className="text-sm text-ink-soft mt-1">จำนวนวันลาคงเหลือของพนักงานแต่ละคน แยกตามประเภทการลา (ปี พ.ศ. {currentYear + 543})</p>
+        <h1 className="report-compact-heading font-display text-2xl font-semibold text-ink">สถิติการลารายบุคคล</h1>
+        <p className="report-compact-description text-sm text-ink-soft mt-1">จำนวนวันลาคงเหลือของพนักงานแต่ละคน แยกตามประเภทการลา (ปี พ.ศ. {currentYear + 543})</p>
       </div>
 
       {activeEmployees.length === 0 && <p className="text-ink-soft text-sm py-6 text-center">ยังไม่มีพนักงานในระบบ</p>}
 
-      <div className="space-y-6">
+      <div className="report-compact-employee-list space-y-6">
         {activeEmployees.map((emp) => (
-          <div key={emp.id} className="card p-4">
-            <p className="font-display font-semibold text-ink mb-3">
+          <div key={emp.id} className="report-compact-card card p-4">
+            <p className="mb-2 font-display text-sm font-semibold text-ink sm:mb-3 sm:text-base">
               {emp.name} <span className="text-ink-soft font-normal text-sm">· {emp.department}</span>
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="report-compact-balances grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
               {filterVisibleLeaveTypes(emp, leaveTypes).map((t) => {
                 const quota = emp.balances?.[t.id] ?? t.defaultDays ?? 0
                 const used = usedFor(emp.id, t.id)

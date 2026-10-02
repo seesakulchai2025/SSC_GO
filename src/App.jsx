@@ -5,6 +5,7 @@ import PinLogin from './components/PinLogin'
 import Navbar from './components/Navbar'
 import ToastViewport from './components/ToastViewport'
 import EmployeeDashboard from './pages/EmployeeDashboard'
+import HomeDashboard from './pages/HomeDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminEmployees from './pages/AdminEmployees'
 import AdminLeaveTypes from './pages/AdminLeaveTypes'
@@ -18,7 +19,6 @@ import PrintLeaveForm from './pages/PrintLeaveForm'
 import Attendance from './pages/Attendance'
 import VehicleLog from './pages/VehicleLog'
 import AdminVehicles from './pages/AdminVehicles'
-import AdminVehicleReports from './pages/AdminVehicleReports'
 import { missingFirebaseConfig } from './firebase'
 
 function RequireAdmin({ children }) {
@@ -60,7 +60,8 @@ function Shell() {
       <Navbar />
       <div className="lg:pl-64 print:pl-0">
         <Routes>
-          <Route path="/" element={<EmployeeDashboard />} />
+          <Route path="/" element={<HomeDashboard />} />
+          <Route path="/leave" element={<EmployeeDashboard />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/vehicles" element={<VehicleLog />} />
           <Route
@@ -113,11 +114,7 @@ function Shell() {
           />
           <Route
             path="/admin/vehicle-reports"
-            element={
-              <RequireAdmin>
-                <AdminVehicleReports />
-              </RequireAdmin>
-            }
+            element={<Navigate to="/admin/reports?view=vehicles" replace />}
           />
           <Route
             path="/admin/leave-types"

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { ATTENDANCE_EVENTS, getAttendanceEvents } from '../utils/attendanceUtils'
-import { todayISO } from '../utils/dateUtils'
+import { formatDateDMY, formatDateTimeDMY, todayISO } from '../utils/dateUtils'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const PERIODS = [
@@ -12,14 +12,11 @@ const PERIODS = [
 ]
 
 function formatDate(date) {
-  if (!date) return '-'
-  return new Date(`${date}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  return formatDateDMY(date)
 }
 
 function formatShortDate(date) {
-  if (!date) return '-'
-  const [year, month, day] = date.split('-')
-  return `${day}/${month}/${year.slice(-2)}`
+  return formatDateDMY(date)
 }
 
 function formatTime(value) {
@@ -81,13 +78,13 @@ export default function AdminAttendanceReport() {
       const rows = filteredRecords.map((record) => {
       const events = getAttendanceEvents(record)
       const row = {
-        วันที่: record.attendanceDate,
+        วันที่: formatDateDMY(record.attendanceDate),
         พนักงาน: record.employeeName,
         แผนก: record.department || '',
       }
       ATTENDANCE_EVENTS.forEach((event) => {
         const scan = events[event.id]
-        row[`${event.label}เวลา`] = scan?.clientAt || ''
+        row[`${event.label}เวลา`] = scan?.clientAt ? formatDateTimeDMY(scan.clientAt, { seconds: true }) : ''
         row[`${event.label}พิกัด`] = scan?.latitude != null && scan?.longitude != null ? `${scan.latitude}, ${scan.longitude}` : ''
         row[`${event.label}ระยะจากร้าน(เมตร)`] = scan?.distanceMeters ?? ''
       })
@@ -106,25 +103,25 @@ export default function AdminAttendanceReport() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 space-y-6">
-      <h2 className="font-display text-xl font-semibold text-ink">รายงานลงเวลาเข้างาน</h2>
+    <div className="report-compact-page mx-auto max-w-6xl px-4 py-6 space-y-6">
+      <h2 className="report-compact-heading font-display text-xl font-semibold text-ink">รายงานลงเวลาเข้างาน</h2>
 
-      <div className="card no-print p-4 space-y-4">
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ช่วงเวลารายงานลงเวลา">
+      <div className="report-compact-card card no-print p-4 space-y-4">
+        <div className="report-compact-segmented flex flex-wrap items-center gap-2" role="group" aria-label="ช่วงเวลารายงานลงเวลา">
           {PERIODS.map((option) => (
             <button key={option.id} type="button" aria-pressed={period === option.id} onClick={() => changePeriod(option.id)} className={`rounded-md border px-3 py-2 text-sm font-semibold ${period === option.id ? 'border-ink bg-ink text-white' : 'border-ink/15 bg-white text-ink-soft'}`}>
               {option.label}
             </button>
           ))}
         </div>
-        <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto_auto] sm:items-end">
-          <label className="text-sm text-ink-soft">
+        <div className="report-compact-filter-grid grid grid-cols-2 gap-2 sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto_auto] sm:items-end sm:gap-3">
+          <label className="report-compact-label min-w-0 text-sm text-ink-soft">
             {period === 'day' ? 'วันที่' : period === 'month' ? 'เดือน' : 'ปี ค.ศ.'}
-            <input type={period === 'day' ? 'date' : period === 'month' ? 'month' : 'number'} min={period === 'year' ? '2000' : undefined} max={period === 'year' ? '2100' : undefined} value={periodValue} onChange={(event) => setPeriodValue(event.target.value)} className="input-field mt-1" />
+            <input type={period === 'day' ? 'date' : period === 'month' ? 'month' : 'number'} min={period === 'year' ? '2000' : undefined} max={period === 'year' ? '2100' : undefined} value={periodValue} onChange={(event) => setPeriodValue(event.target.value)} className="report-compact-control input-field mt-1" />
           </label>
-          <label className="text-sm text-ink-soft">
+          <label className="report-compact-label min-w-0 text-sm text-ink-soft">
             พนักงาน
-            <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)} className="input-field mt-1">
+            <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)} className="report-compact-control input-field mt-1">
               <option value="">ทุกคน</option>
               {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
             </select>
@@ -134,15 +131,15 @@ export default function AdminAttendanceReport() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="report-compact-summary flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="font-semibold text-ink">{from && to ? `${formatDate(from)} – ${formatDate(to)}` : 'เลือกช่วงเวลารายงาน'}</p>
           <p className="text-sm text-ink-soft">{filteredRecords.length} รายการ · ยอดหักรวม {totalDeduction} บาท</p>
         </div>
       </div>
 
-      <section className="card report-print-card overflow-x-auto">
-        <table className="w-full min-w-[1120px] text-sm">
+      <section className="report-compact-card report-compact-table-frame card report-print-card overflow-x-auto">
+        <table className="report-compact-attendance-table w-full min-w-[1120px] text-sm">
           <thead>
             <tr className="border-b border-ink/10 text-center text-ink-soft">
               <th className="whitespace-nowrap p-3 font-semibold">วันที่</th>
@@ -165,7 +162,7 @@ export default function AdminAttendanceReport() {
                   {ATTENDANCE_EVENTS.map((event) => (
                     <td key={event.id} className="whitespace-nowrap p-3 text-center">
                       {events[event.id] ? (
-                        <div>
+                        <div className="report-compact-attendance-event">
                           <p className="font-mono">{formatTime(events[event.id].clientAt)}</p>
                           <a href={`https://www.google.com/maps?q=${events[event.id].latitude},${events[event.id].longitude}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brass-dark underline">
                             แผนที่ · {events[event.id].distanceMeters} ม.

@@ -13,7 +13,7 @@ function Checkbox({ checked, label }) {
     <span className="inline-flex items-center gap-1.5 mr-6">
       <span
         className="inline-block w-4 h-4 border-2 border-ink shrink-0"
-        style={{ backgroundColor: checked ? '#1B2A4A' : 'transparent' }}
+        style={{ backgroundColor: checked ? 'var(--color-primary)' : 'transparent' }}
       />
       {label}
     </span>
@@ -111,7 +111,7 @@ export default function PrintLeaveForm({ requestId, onClose }) {
         </p>
 
         <div className={isModal ? 'modal-scroll' : undefined}>
-        <div id="print-sheet" className="max-w-2xl mx-auto bg-white shadow-stamp px-10 py-10 mb-10 text-ink" style={{ fontFamily: "'IBM Plex Sans Thai', sans-serif" }}>
+        <div id="print-sheet" className="max-w-2xl mx-auto bg-white shadow-stamp px-10 py-10 mb-10 text-ink" style={{ fontFamily: "'Noto Sans Thai', sans-serif" }}>
         {/* หัวข้อกระดาษ */}
         <div className="text-center border-b-2 border-ink pb-4 mb-6">
           <p className="font-display text-xl font-bold">{COMPANY_NAME}</p>
