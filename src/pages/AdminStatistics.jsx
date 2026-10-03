@@ -3,6 +3,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import LeaveBalanceCard from '../components/LeaveBalanceCard'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
+import { MobileInfo, MobileList } from '../components/MobileSheetSection'
 
 export default function AdminStatistics() {
   const [employees, setEmployees] = useState([])
@@ -43,21 +44,32 @@ export default function AdminStatistics() {
   const activeEmployees = employees.filter((e) => e.active !== false)
 
   return (
-    <div className="report-compact-page max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="report-compact-heading font-display text-2xl font-semibold text-ink">สถิติการลารายบุคคล</h1>
-        <p className="report-compact-description text-sm text-ink-soft mt-1">จำนวนวันลาคงเหลือของพนักงานแต่ละคน แยกตามประเภทการลา (ปี พ.ศ. {currentYear + 543})</p>
+    <div className="report-panel report-compact-page page-stack">
+      <div className="page-section-head page-section-head--stacked">
+        <div className="flex w-full items-center justify-between gap-2">
+          <h1 className="report-compact-heading font-display text-2xl font-semibold text-ink">สถิติการลารายบุคคล</h1>
+          <span className="sm:hidden">
+            <MobileInfo title="สถิติการลารายบุคคล">
+              <p className="text-sm text-ink-soft">จำนวนวันลาคงเหลือของพนักงานแต่ละคน แยกตามประเภทการลา (ปี พ.ศ. {currentYear + 543})</p>
+            </MobileInfo>
+          </span>
+        </div>
+        <p className="report-compact-description mt-1 hidden text-sm text-ink-soft sm:block">จำนวนวันลาคงเหลือของพนักงานแต่ละคน แยกตามประเภทการลา (ปี พ.ศ. {currentYear + 543})</p>
       </div>
 
       {activeEmployees.length === 0 && <p className="text-ink-soft text-sm py-6 text-center">ยังไม่มีพนักงานในระบบ</p>}
 
-      <div className="report-compact-employee-list space-y-6">
-        {activeEmployees.map((emp) => (
+      <MobileList
+        items={activeEmployees}
+        limit={5}
+        title="สถิติพนักงานทั้งหมด"
+        className="report-compact-employee-list space-y-6"
+        renderItem={(emp) => (
           <div key={emp.id} className="report-compact-card card p-4">
             <p className="mb-2 font-display text-sm font-semibold text-ink sm:mb-3 sm:text-base">
               {emp.name} <span className="text-ink-soft font-normal text-sm">· {emp.department}</span>
             </p>
-            <div className="report-compact-balances grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+            <div className="report-compact-balances card-grid card-grid--two sm:grid-cols-3">
               {filterVisibleLeaveTypes(emp, leaveTypes).map((t) => {
                 const quota = emp.balances?.[t.id] ?? t.defaultDays ?? 0
                 const used = usedFor(emp.id, t.id)
@@ -65,8 +77,8 @@ export default function AdminStatistics() {
               })}
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      />
     </div>
   )
 }

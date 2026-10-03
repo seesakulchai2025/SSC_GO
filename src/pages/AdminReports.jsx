@@ -207,7 +207,7 @@ export default function AdminReports() {
   }
 
   return (
-    <div className="report-compact-page max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="report-panel report-compact-page page-stack">
       <h1 className="report-compact-heading no-print font-display text-2xl font-semibold text-ink">รายงานวันลาเพื่อคำนวณเงินเดือน</h1>
 
       <div className="report-compact-card card p-4 space-y-3 no-print">

@@ -116,8 +116,8 @@ export default function AdminDashboard({ embedded = false, approvalOnly = false,
   })
 
   return (
-    <div className={embedded ? 'flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4' : 'max-w-4xl mx-auto px-4 py-6 space-y-6'}>
-      {!embedded && <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className={embedded ? 'flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-4' : 'page-container page-stack'}>
+      {!embedded && <div className="page-section-head items-center">
         <h1 className="font-display text-2xl font-semibold text-ink">อนุมัติวันลา</h1>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={showAllRequests} className="btn-secondary py-2 px-3 text-sm">ดูใบลาทั้งหมด / แก้ย้อนหลัง</button>
@@ -125,7 +125,7 @@ export default function AdminDashboard({ embedded = false, approvalOnly = false,
         </div>
       </div>}
 
-      {!approvalOnly && <div className={`card p-4 space-y-3 ${embedded ? 'shrink-0' : ''}`}>
+      {!approvalOnly && <div className={`card page-card space-y-3 ${embedded ? 'shrink-0' : ''}`}>
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
           <input
             placeholder="ค้นหาชื่อพนักงาน หรือแผนก"

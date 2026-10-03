@@ -1,15 +1,20 @@
 import StatusBadge from './StatusBadge'
 import { formatThaiDate, DURATION_LABELS } from '../utils/dateUtils'
+import { MobileList } from './MobileSheetSection'
 
-export default function LeaveHistoryList({ requests, showEmployee = false, actions }) {
+export default function LeaveHistoryList({ requests, showEmployee = false, actions, mobileLimit }) {
   if (requests.length === 0) {
     return <p className="text-ink-soft text-sm py-6 text-center">ยังไม่มีรายการ</p>
   }
 
   return (
-    <div className="space-y-3">
-      {requests.map((r) => (
-        <div key={r.id} className="card p-4 flex items-start justify-between gap-3">
+    <MobileList
+      items={requests}
+      limit={mobileLimit ?? requests.length}
+      title="ประวัติการลาทั้งหมด"
+      className="space-y-3"
+      renderItem={(r) => (
+        <div key={r.id} className="card p-3 sm:p-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             {showEmployee && (
               <p className="font-semibold text-ink text-sm">
@@ -44,7 +49,7 @@ export default function LeaveHistoryList({ requests, showEmployee = false, actio
             {actions?.(r)}
           </div>
         </div>
-      ))}
-    </div>
+      )}
+    />
   )
 }

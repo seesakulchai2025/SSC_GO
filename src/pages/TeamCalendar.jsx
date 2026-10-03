@@ -62,8 +62,8 @@ export default function TeamCalendar() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="page-container page-stack">
+      <div className="page-section-head">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink">ปฏิทินวันลาทีม</h1>
           <p className="text-sm text-ink-soft mt-1">แสดงเฉพาะใบลาที่อนุมัติแล้ว — แตะวันที่มีจุดหรือวันหยุดเพื่อดูรายละเอียด</p>

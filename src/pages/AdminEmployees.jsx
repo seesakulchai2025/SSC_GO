@@ -44,7 +44,7 @@ function PayrollFields({ form, setForm }) {
   return (
     <section className="space-y-3 border-t border-ink/10 pt-4">
       <h3 className="font-semibold text-ink">ข้อมูลเงินเดือน</h3>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="card-grid">
         <label className="space-y-1 text-xs text-ink-soft">
           {form.employmentStatus === 'permanent_pc' ? 'ฐานเงินเดือน' : salaryLabel}
           {form.employmentStatus === 'permanent_pc'
@@ -368,8 +368,8 @@ export default function AdminEmployees() {
   const selectedEmployee = directoryEmployees.find((employee) => employee.id === selectedEmployeeId)
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-      <header>
+    <div className="page-container page-stack">
+      <header className="page-section-head page-section-head--stacked">
         <h1 className="font-display text-2xl font-semibold text-ink">ข้อมูลบุคลากร</h1>
         <p className="mt-1 text-sm text-ink-soft">แยกรายชื่อพนักงานและผู้ดูแลระบบ</p>
       </header>

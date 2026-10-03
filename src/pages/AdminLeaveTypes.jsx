@@ -52,11 +52,13 @@ export default function AdminLeaveTypes() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <h1 className="font-display text-2xl font-semibold text-ink">ประเภทการลา</h1>
-      <p className="text-sm text-ink-soft -mt-4">
-        ระบบรองรับการลา 3 ประเภทเท่านั้น ปรับได้เฉพาะจำนวนวันโควตามาตรฐานต่อปี — โควตารายบุคคลปรับแยกได้ในหน้า "พนักงาน"
-      </p>
+    <div className="page-container page-stack">
+      <div className="page-section-head page-section-head--stacked">
+        <h1 className="font-display text-2xl font-semibold text-ink">ประเภทการลา</h1>
+        <p className="text-sm text-ink-soft">
+          ระบบรองรับการลา 3 ประเภทเท่านั้น ปรับได้เฉพาะจำนวนวันโควตามาตรฐานต่อปี — โควตารายบุคคลปรับแยกได้ในหน้า "พนักงาน"
+        </p>
+      </div>
 
       <div className="space-y-3">
         {types.map((t) => (

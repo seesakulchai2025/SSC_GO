@@ -103,7 +103,7 @@ export default function AdminAttendanceReport() {
   }
 
   return (
-    <div className="report-compact-page mx-auto max-w-6xl px-4 py-6 space-y-6">
+    <div className="report-panel report-compact-page page-stack">
       <h2 className="report-compact-heading font-display text-xl font-semibold text-ink">รายงานลงเวลาเข้างาน</h2>
 
       <div className="report-compact-card card no-print p-4 space-y-4">

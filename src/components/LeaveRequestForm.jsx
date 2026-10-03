@@ -109,8 +109,8 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-5 space-y-4">
-      <h2 className="font-display font-semibold text-ink text-lg">ยื่นใบลา</h2>
+    <form onSubmit={handleSubmit} className="card p-3 space-y-3 sm:p-5 sm:space-y-4">
+      <h2 className="font-display font-semibold text-ink text-base sm:text-lg">ยื่นใบลา</h2>
 
       <div>
         <label className="text-sm text-ink-soft mb-1 block">ประเภทการลา</label>
@@ -144,7 +144,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
                 type="button"
                 key={d.id}
                 onClick={() => setDuration(d.id)}
-                className={`min-h-11 rounded-lg px-2 text-sm font-semibold border-2 transition-colors ${
+                className={`min-h-10 sm:min-h-11 rounded-lg px-2 text-sm font-semibold border-2 transition-colors ${
                   duration === d.id ? 'bg-ink text-paper border-ink' : 'bg-white text-ink-soft border-ink/15'
                 }`}
               >
@@ -166,7 +166,7 @@ export default function LeaveRequestForm({ leaveTypes, remainingByType, onSubmit
       </div>
 
       <div>
-        <label className="text-sm text-ink-soft mb-1 block">แนบหลักฐาน (ไม่บังคับ — แนบทีหลังก็ได้, ไฟล์รูปภาพ/PDF)</label>
+        <label className="text-sm text-ink-soft mb-1 block"><span className="sm:hidden">แนบหลักฐาน (ไม่บังคับ)</span><span className="hidden sm:inline">แนบหลักฐาน (ไม่บังคับ — แนบทีหลังก็ได้, ไฟล์รูปภาพ/PDF)</span></label>
         <input
           type="file"
           accept="image/*,application/pdf"

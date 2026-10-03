@@ -14,9 +14,9 @@ export default function AdminReportCenter() {
   }
 
   return (
-    <div className="report-center mx-auto max-w-5xl px-4 py-6">
+    <div className="report-center page-container page-stack">
       <div className="mb-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="page-section-head items-center">
           <h1 className="report-compact-heading font-display text-2xl font-semibold text-ink">รายงาน</h1>
           <Link to="/admin" className="report-compact-back btn-secondary py-2 px-3 text-sm">← กลับหน้าอนุมัติ</Link>
         </div>

@@ -6,6 +6,7 @@ import { formatDateDMY, todayISO } from '../utils/dateUtils'
 import { parseGoogleMapsCoordinates } from '../utils/googleMaps'
 import { ATTENDANCE_EVENTS, calculateAttendanceLateMinutes, calculateOvertimeMinutes, getAttendanceEvents, getNextAttendanceEvent, isScheduledCheckInOpen } from '../utils/attendanceUtils'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
+import MobileSheetSection, { MobileInfo } from '../components/MobileSheetSection'
 
 const SETTINGS_ID = 'attendanceSettings'
 const EARTH_RADIUS_METERS = 6371000
@@ -498,11 +499,23 @@ export default function Attendance({ embedded = false }) {
   const totalDeduction = records.reduce((total, record) => total + (record.deductionBaht || 0), 0)
 
   return (
-    <div className={embedded ? 'space-y-6' : 'max-w-4xl mx-auto px-4 py-6 space-y-6'}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">ลงเวลาเข้างาน</h1>
-          <p className="mt-1 text-sm text-ink-soft">{formatDate(today)} · เวลาเข้างาน {settings?.workStartTime || '08:00'}-{settings?.workEndTime || '17:00'} น. · เปิดเช็กอินก่อนเวลา 10 นาที</p>
+    <div className={embedded ? 'space-y-6' : 'page-container page-stack'}>
+      <div className="page-section-head items-start">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <h1 className="font-display text-lg font-semibold text-ink sm:text-2xl">ลงเวลาเข้างาน</h1>
+            <span className="sm:hidden">
+              <MobileInfo title="ข้อควรทราบการลงเวลา">
+                <div className="space-y-3 text-sm text-ink-soft">
+                  <p>{formatDate(today)} · เวลาเข้างาน {settings?.workStartTime || '08:00'}-{settings?.workEndTime || '17:00'} น. · เปิดเช็กอินก่อนเวลา 10 นาที</p>
+                  {settings && <p>พื้นที่เช็กอินไม่เกิน {settings.radiusMeters} เมตร และต้องอนุญาตตำแหน่งของอุปกรณ์</p>}
+                  <p>เวลาและ GPS ใช้ข้อมูลจากอุปกรณ์ที่เช็กอิน ควรตรวจสอบรายการก่อนใช้เป็นหลักฐานคำนวณค่าจ้าง</p>
+                </div>
+              </MobileInfo>
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-ink-soft sm:hidden">{formatDate(today)} · {settings?.workStartTime || '08:00'}-{settings?.workEndTime || '17:00'} น.</p>
+          <p className="mt-1 hidden text-sm text-ink-soft sm:block">{formatDate(today)} · เวลาเข้างาน {settings?.workStartTime || '08:00'}-{settings?.workEndTime || '17:00'} น. · เปิดเช็กอินก่อนเวลา 10 นาที</p>
         </div>
         {isAdmin && (
           <button type="button" onClick={() => setShowAttendanceHistory(true)} className="btn-secondary shrink-0 py-2 px-3 text-sm">
@@ -511,7 +524,7 @@ export default function Attendance({ embedded = false }) {
         )}
       </div>
 
-      <section className="card p-5 space-y-4">
+      <section className="card page-card space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-semibold text-ink">{employee.name}</p>
@@ -522,11 +535,11 @@ export default function Attendance({ embedded = false }) {
             <p className="font-semibold text-ink">{nextEvent ? `ขั้นตอน ${ATTENDANCE_EVENTS.findIndex((event) => event.id === nextEventId) + 1} จาก 4` : 'ลงเวลาครบแล้ว'}</p>
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2">
           {ATTENDANCE_EVENTS.map((event, index) => {
             const scan = todayEvents[event.id]
             return (
-              <div key={event.id} className={`flex items-center justify-between gap-3 rounded-md border p-3 ${scan ? 'border-sage/30 bg-sage-light/50' : event.id === nextEventId ? 'border-brass/40 bg-brass/5' : 'border-ink/10 bg-white'}`}>
+              <div key={event.id} className={`flex flex-col items-start gap-1 rounded-md border p-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-3 ${scan ? 'border-sage/30 bg-sage-light/50' : event.id === nextEventId ? 'border-brass/40 bg-brass/5' : 'border-ink/10 bg-white'}`}>
                 <div className="min-w-0">
                   <p className="text-xs text-ink-soft">{index + 1}. {event.label}</p>
                   {scan ? <div className="mt-1"><MapsLink scan={scan} /></div> : <p className="mt-1 text-sm text-ink-soft">ยังไม่ลงเวลา</p>}
@@ -545,34 +558,35 @@ export default function Attendance({ embedded = false }) {
         ) : (
           <div className="rounded-md bg-sage-light p-3 text-sm font-semibold text-ink">ลงเวลาครบทั้ง 4 ขั้นตอนแล้ว</div>
         )}
-        {settings && <p className="text-xs text-ink-soft">พื้นที่เช็กอินไม่เกิน {settings.radiusMeters} เมตร และต้องอนุญาตตำแหน่งของอุปกรณ์</p>}
-        <p className="text-xs text-ink-soft">เวลาและ GPS ใช้ข้อมูลจากอุปกรณ์ที่เช็กอิน ควรตรวจสอบรายการก่อนใช้เป็นหลักฐานคำนวณค่าจ้าง</p>
+        {settings && <p className="hidden text-xs text-ink-soft sm:block">พื้นที่เช็กอินไม่เกิน {settings.radiusMeters} เมตร และต้องอนุญาตตำแหน่งของอุปกรณ์</p>}
+        <p className="hidden text-xs text-ink-soft sm:block">เวลาและ GPS ใช้ข้อมูลจากอุปกรณ์ที่เช็กอิน ควรตรวจสอบรายการก่อนใช้เป็นหลักฐานคำนวณค่าจ้าง</p>
         {error && <p role="alert" className="text-sm text-clay">{error}</p>}
         {message && <p role="status" className="text-sm text-sage">{message}</p>}
       </section>
 
       {isAdmin && (
         <>
+          <MobileSheetSection title="ลงเวลาแทนพนักงาน">
           <section className="card space-y-4 p-5">
             <div>
-              <h2 className="font-display text-lg font-semibold text-ink">ลงเวลาแทนพนักงาน</h2>
+              <h2 className="sheet-dup-title font-display text-lg font-semibold text-ink">ลงเวลาแทนพนักงาน</h2>
               <p className="mt-1 text-sm text-ink-soft">บันทึกย้อนหลังเพื่อทดสอบรายงานและเงินเดือน โดยไม่ใช้ตำแหน่ง GPS</p>
             </div>
             <form onSubmit={saveManualAttendance} className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="text-sm text-ink-soft">พนักงาน
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="min-w-0 text-sm text-ink-soft">พนักงาน
                   <select className="input-field mt-1" value={manualEmployeeId} onChange={(event) => setManualEmployeeId(event.target.value)} required>
                     <option value="">เลือกพนักงาน</option>
                     {employees.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.department || 'ไม่ระบุแผนก'}</option>)}
                   </select>
                 </label>
-                <label className="text-sm text-ink-soft">วันที่ลงเวลา
+                <label className="min-w-0 text-sm text-ink-soft">วันที่ลงเวลา
                   <input type="date" className="input-field mt-1" value={manualDate} onChange={(event) => setManualDate(event.target.value)} required />
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                 {ATTENDANCE_EVENTS.map((attendanceEvent) => (
-                  <label key={attendanceEvent.id} className="text-sm text-ink-soft">{attendanceEvent.label}
+                  <label key={attendanceEvent.id} className="min-w-0 text-sm text-ink-soft">{attendanceEvent.label}
                     <input type="time" className="input-field mt-1" value={manualTimes[attendanceEvent.id]} onChange={(event) => setManualTimes((current) => ({ ...current, [attendanceEvent.id]: event.target.value }))} required />
                   </label>
                 ))}
@@ -582,10 +596,12 @@ export default function Attendance({ embedded = false }) {
               </button>
             </form>
           </section>
+          </MobileSheetSection>
 
+          <MobileSheetSection title="ตั้งค่าพิกัดร้าน">
           <section className="card p-5 space-y-4">
             <div>
-              <h2 className="font-display text-lg font-semibold text-ink">ตั้งค่าพิกัดร้าน</h2>
+              <h2 className="sheet-dup-title font-display text-lg font-semibold text-ink">ตั้งค่าพิกัดร้าน</h2>
               <p className="mt-1 text-sm text-ink-soft">ตั้งค่าที่ร้านหรือกรอกพิกัดเอง เปลี่ยนพิกัดและระยะได้ภายหลัง</p>
             </div>
             <div className="rounded-lg border border-ink/10 bg-paper/60 p-4 space-y-3">
@@ -613,7 +629,7 @@ export default function Attendance({ embedded = false }) {
               </form>
             </div>
             <form onSubmit={saveSettings} className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <label className="text-sm text-ink-soft">ละติจูด
                   <input type="number" step="any" value={settingsDraft.latitude} onChange={(event) => setSettingsDraft({ ...settingsDraft, latitude: event.target.value })} className="input-field mt-1" placeholder="เช่น 13.7563" required />
                 </label>
@@ -626,7 +642,7 @@ export default function Attendance({ embedded = false }) {
               </div>
               <div className="border-t border-ink/10 pt-4">
                 <h3 className="text-sm font-semibold text-ink">เวลาเข้างานปกติ</h3>
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-3 grid grid-cols-2 gap-3">
                   <label className="text-sm text-ink-soft">เวลาเข้างาน
                     <input type="time" value={settingsDraft.workStartTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, workStartTime: event.target.value })} className="input-field mt-1" required />
                   </label>
@@ -640,7 +656,7 @@ export default function Attendance({ embedded = false }) {
                 เปิดช่วงเวลาพิเศษสำหรับ OT
               </label>
               {settingsDraft.overtimeOpen && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3">
                   <label className="text-sm text-ink-soft">เริ่ม OT
                     <input type="time" value={settingsDraft.overtimeStartTime} onChange={(event) => setSettingsDraft({ ...settingsDraft, overtimeStartTime: event.target.value })} className="input-field mt-1" required />
                   </label>
@@ -656,6 +672,7 @@ export default function Attendance({ embedded = false }) {
             </form>
             {!settingsReady && <p className="text-sm text-ink-soft">กำลังโหลดค่าพิกัด...</p>}
           </section>
+          </MobileSheetSection>
 
         </>
       )}
@@ -723,9 +740,9 @@ export default function Attendance({ embedded = false }) {
               <button type="button" onClick={() => setAttendanceEditing(null)} aria-label="ปิดแก้ไขเวลา" className="px-2 text-xl text-ink-soft">×</button>
             </header>
             <form onSubmit={saveEditedAttendance} className="space-y-4 px-5 py-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
                 {ATTENDANCE_EVENTS.map((attendanceEvent) => (
-                  <label key={attendanceEvent.id} className="text-sm text-ink-soft">{attendanceEvent.label}
+                  <label key={attendanceEvent.id} className="min-w-0 text-sm text-ink-soft">{attendanceEvent.label}
                     <input type="time" className="input-field mt-1" value={attendanceEditTimes[attendanceEvent.id] || ''} onChange={(event) => setAttendanceEditTimes((current) => ({ ...current, [attendanceEvent.id]: event.target.value }))} />
                   </label>
                 ))}

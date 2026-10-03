@@ -90,18 +90,18 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="page-container page-stack">
+      <div className="page-section-head items-center sm:items-end">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">ลงวันลา</h1>
-          <p className="text-sm text-ink-soft">{employee.name}{employee.department ? ` · ${employee.department}` : ''}</p>
+          <h1 className="font-display text-lg font-semibold text-ink sm:text-2xl">ลงวันลา</h1>
+          <p className="hidden text-sm text-ink-soft sm:block">{employee.name}{employee.department ? ` · ${employee.department}` : ''}</p>
         </div>
         {isAdmin && (
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
-            <button type="button" onClick={() => setShowApprovalPopup(true)} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-ink bg-ink px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-light sm:flex-none sm:px-4">
+          <div className="flex gap-2 sm:w-auto sm:flex-nowrap">
+            <button type="button" onClick={() => setShowApprovalPopup(true)} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-ink bg-ink px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-light sm:min-h-11 sm:flex-none sm:px-4">
               อนุมัติ ({pendingCount})
             </button>
-            <button type="button" onClick={() => { setAllLeavesTab('all'); setShowAllLeavesPopup(true) }} className="btn-secondary inline-flex flex-1 items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none sm:px-4">
+            <button type="button" onClick={() => { setAllLeavesTab('all'); setShowAllLeavesPopup(true) }} className="btn-secondary inline-flex items-center justify-center gap-2 px-3 py-2 text-sm sm:flex-none sm:px-4">
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" />
               </svg>
@@ -114,7 +114,7 @@ export default function EmployeeDashboard() {
       <TodayLeaveCard />
 
       <div>
-        <h2 className="font-display font-semibold text-ink mb-3">โควตาวันลาปีนี้</h2>
+        <h2 className="font-display font-semibold text-ink mb-2 text-[15px] sm:mb-3 sm:text-base">โควตาวันลาปีนี้</h2>
         <div className={`grid ${quotaGridColumns} gap-2 sm:gap-3`}>
           {visibleLeaveTypes.map((t) => (
             <LeaveBalanceCard key={t.id} leaveType={t} used={usedByType[t.id] || 0} quota={quotaByType[t.id]} variant="donut" />
@@ -125,9 +125,10 @@ export default function EmployeeDashboard() {
       <LeaveRequestForm leaveTypes={visibleLeaveTypes} remainingByType={remainingByType} />
 
       <div>
-        <h2 className="font-display font-semibold text-ink mb-3">ประวัติการลา</h2>
+        <h2 className="font-display font-semibold text-ink mb-2 text-[15px] sm:mb-3 sm:text-base">ประวัติการลา</h2>
         <LeaveHistoryList
           requests={requests}
+          mobileLimit={3}
           actions={(r) => (
             <div className="flex flex-col items-end gap-2">
               <button type="button" onClick={() => setPrintingRequestId(r.id)} className="text-xs font-semibold text-ink-soft underline">

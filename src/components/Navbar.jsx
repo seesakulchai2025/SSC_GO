@@ -73,9 +73,9 @@ export default function Navbar() {
     )
   }
 
-  function AccountActions({ mobile = false }) {
+  function AccountActions() {
     return (
-      <div className={`border-ink/10 ${mobile ? 'border-t p-3' : 'border-t p-4'}`}>
+      <div className="border-t border-ink/10 p-3">
         <button onClick={() => setShowProfile(true)} className="mb-2 block min-h-11 w-full truncate py-2 text-left text-sm font-semibold text-ink hover:underline">
           {employee?.name || 'บัญชีของฉัน'}
         </button>
@@ -90,7 +90,7 @@ export default function Navbar() {
   return (
     <>
       <aside className="no-print fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-ink/10 bg-paper lg:flex">
-        <div className="border-b border-ink/10 px-5 py-5">
+        <div className="border-b border-ink/10 px-6 py-5">
           <p className="font-display text-base font-semibold text-ink">ระบบพนักงานสีสกุลไชย</p>
           <p className="mt-1 text-xs text-ink-soft">ระบบงานพนักงาน</p>
         </div>
@@ -100,9 +100,9 @@ export default function Navbar() {
         <AccountActions />
       </aside>
 
-      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-ink/10 bg-paper/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="mobile-app-header no-print sticky top-0 z-30 flex items-center justify-between border-b border-ink/10 bg-paper/95 px-4 py-1 backdrop-blur sm:py-3 lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <button onClick={() => setMenuOpen(true)} className="grid size-11 shrink-0 place-items-center p-0 text-ink" aria-label="เปิดเมนู">
+          <button onClick={() => setMenuOpen(true)} className="grid size-10 shrink-0 place-items-center p-0 text-ink sm:size-11" aria-label="เปิดเมนู">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="21" y2="12" />
@@ -111,7 +111,7 @@ export default function Navbar() {
           </button>
           <span className="truncate font-display font-semibold text-ink">ระบบพนักงานสีสกุลไชย</span>
         </div>
-        <button onClick={() => setShowProfile(true)} className="min-h-11 max-w-[45%] truncate px-2 text-sm text-ink-soft underline decoration-dotted">
+        <button onClick={() => setShowProfile(true)} className="min-h-10 max-w-[45%] truncate px-2 text-sm text-ink-soft underline decoration-dotted sm:min-h-11">
           {employee?.name}
         </button>
       </header>
@@ -119,8 +119,8 @@ export default function Navbar() {
       {menuOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden" onClick={() => setMenuOpen(false)}>
           <div className="absolute inset-0 bg-ink/40" />
-          <aside onClick={(event) => event.stopPropagation()} className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-paper shadow-stamp">
-            <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
+          <aside onClick={(event) => event.stopPropagation()} className="mobile-nav-drawer absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-paper shadow-stamp">
+            <div className="flex items-center justify-between border-b border-ink/10 px-6 py-4">
               <div>
                 <p className="font-display text-base font-semibold text-ink">ระบบพนักงานสีสกุลไชย</p>
                 <p className="mt-1 max-w-52 truncate text-xs text-ink-soft">{employee?.name}</p>
@@ -130,7 +130,7 @@ export default function Navbar() {
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">
               <Navigation />
             </nav>
-            <AccountActions mobile />
+            <AccountActions />
           </aside>
         </div>
       )}

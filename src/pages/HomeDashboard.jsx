@@ -8,6 +8,7 @@ import TodayLeaveCard from '../components/TodayLeaveCard'
 import { formatDateDMY, formatDateTimeDMY, todayISO } from '../utils/dateUtils'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { notifyError } from '../components/ToastViewport'
+import { MobileList } from '../components/MobileSheetSection'
 
 function formatDateTime(value) {
   return formatDateTimeDMY(value)
@@ -75,31 +76,31 @@ export default function HomeDashboard() {
   const vehiclesInUse = vehicles.filter((vehicle) => Boolean(vehicle.activeCheckoutId))
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 pb-4">
+    <main className="page-container page-stack">
+      <header className="page-section-head items-center border-b border-ink/10 pb-2 sm:items-end sm:pb-4">
         <div>
-          <p className="font-mono text-xs uppercase text-brass-dark">Dashboard</p>
-          <h1 className="font-display text-2xl font-semibold text-ink">หน้าหลัก</h1>
-          <p className="mt-1 text-sm text-ink-soft">{employee.name}{employee.department ? ` · ${employee.department}` : ''}</p>
+          <p className="hidden font-mono text-xs uppercase text-brass-dark sm:block">Dashboard</p>
+          <h1 className="font-display text-lg font-semibold text-ink sm:text-2xl">หน้าหลัก</h1>
+          <p className="mt-1 hidden text-sm text-ink-soft sm:block">{employee.name}{employee.department ? ` · ${employee.department}` : ''}</p>
         </div>
-        <Link to="/attendance" className="inline-flex min-h-11 items-center rounded-xl border border-ink bg-ink px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-light">ลงเวลาเข้างาน</Link>
+        <Link to="/attendance" className="inline-flex min-h-10 items-center sm:min-h-11 rounded-xl border border-ink bg-ink px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink-light">ลงเวลาเข้างาน</Link>
       </header>
 
-      <section className="mx-auto w-full max-w-3xl" aria-labelledby="attendance-summary-title">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+      <section className="min-w-0" aria-labelledby="attendance-summary-title">
+        <div className="page-section-head mb-2 sm:mb-3">
           <div>
-            <h2 id="attendance-summary-title" className="font-display text-lg font-semibold text-ink">สถิติลงเวลาเดือนนี้</h2>
+            <h2 id="attendance-summary-title" className="font-display text-base font-semibold text-ink sm:text-lg">สถิติลงเวลาเดือนนี้</h2>
             <p className="text-xs text-ink-soft">{formatDateDMY(monthStart)}</p>
           </div>
-          <Link to="/attendance" className="inline-flex min-h-11 items-center text-sm font-semibold text-brass-dark underline">ไปหน้าลงเวลา</Link>
+          <Link to="/attendance" className="inline-flex min-h-10 items-center text-sm font-semibold text-brass-dark underline sm:min-h-11">ไปหน้าลงเวลา</Link>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="card-grid card-grid--three">
           {[
             ['วันที่เข้างาน', attendanceDays, 'วัน'],
             ['ลงเวลาครบ 4 ขั้น', completeDays, 'วัน'],
             ['สายรวม', lateMinutes, 'นาที'],
           ].map(([label, value, unit]) => (
-            <div key={label} className="flex min-h-20 min-w-0 flex-col justify-between rounded-card border border-border bg-white px-2 py-2 shadow-stamp sm:px-4 sm:py-3">
+            <div key={label} className="flex min-h-16 min-w-0 flex-col sm:min-h-20 justify-between rounded-card border border-border bg-white px-2 py-2 shadow-stamp sm:px-4 sm:py-3">
               <p className="line-clamp-2 min-h-8 break-words text-[11px] leading-4 text-ink-soft sm:min-h-0 sm:text-xs">{label}</p>
               <p className="mt-1 min-w-0 font-display text-lg font-semibold leading-6 text-ink sm:text-xl">
                 {value} <span className="text-[10px] font-normal text-ink-soft sm:text-xs">{unit}</span>
@@ -111,17 +112,17 @@ export default function HomeDashboard() {
 
       <TodayLeaveCard />
 
-      <section className="mx-auto w-full max-w-3xl" aria-labelledby="leave-quota-title">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+      <section className="min-w-0" aria-labelledby="leave-quota-title">
+        <div className="page-section-head mb-2 sm:mb-3">
           <div>
-            <h2 id="leave-quota-title" className="font-display text-lg font-semibold text-ink">โควต้าวันลาปีนี้</h2>
-            <p className="text-xs text-ink-soft">แสดงวันคงเหลือและจำนวนวันที่ใช้ไป</p>
+            <h2 id="leave-quota-title" className="font-display text-base font-semibold text-ink sm:text-lg">โควต้าวันลาปีนี้</h2>
+            <p className="hidden text-xs text-ink-soft sm:block">แสดงวันคงเหลือและจำนวนวันที่ใช้ไป</p>
           </div>
-          <Link to="/leave" className="inline-flex min-h-11 items-center text-sm font-semibold text-brass-dark underline">ไปหน้ายื่นใบลา</Link>
+          <Link to="/leave" className="inline-flex min-h-10 items-center sm:min-h-11 text-sm font-semibold text-brass-dark underline">ไปหน้ายื่นใบลา</Link>
         </div>
-        <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
+        <div className="card-grid card-grid--two">
           {quotaCharts.map(({ leaveType, used, quota }) => (
-            <div key={leaveType.id} className="min-w-[100px] flex-1">
+            <div key={leaveType.id} className="min-w-0">
               <LeaveBalanceCard leaveType={leaveType} used={used} quota={quota} variant="donut" />
             </div>
           ))}
@@ -130,22 +131,26 @@ export default function HomeDashboard() {
       </section>
 
       <section aria-labelledby="vehicle-status-title">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div className="page-section-head mb-2 sm:mb-3">
           <div>
-            <h2 id="vehicle-status-title" className="font-display text-lg font-semibold text-ink">สถานะรถบริษัท</h2>
+            <h2 id="vehicle-status-title" className="font-display text-base font-semibold text-ink sm:text-lg">สถานะรถบริษัท</h2>
             <p className="text-sm text-ink-soft">ยังไม่คืน {vehiclesInUse.length} คัน</p>
           </div>
-          <Link to="/vehicles" className="inline-flex min-h-11 items-center text-sm font-semibold text-brass-dark underline">ดูรายการและใช้รถ</Link>
+          <Link to="/vehicles" className="inline-flex min-h-10 items-center sm:min-h-11 text-sm font-semibold text-brass-dark underline">ดูรายการและใช้รถ</Link>
         </div>
         {vehiclesInUse.length === 0 ? (
-          <p className="border border-dashed border-ink/20 p-5 text-center text-sm text-ink-soft">ขณะนี้ไม่มีรถที่กำลังใช้งานหรือยังไม่คืน</p>
+          <p className="border border-dashed border-ink/20 p-3 text-center sm:p-5 text-sm text-ink-soft">ขณะนี้ไม่มีรถที่กำลังใช้งานหรือยังไม่คืน</p>
         ) : (
-          <div className="divide-y divide-ink/10 border-y border-ink/10">
-            {vehiclesInUse.map((vehicle) => {
+          <MobileList
+            items={vehiclesInUse}
+            limit={3}
+            title="สถานะรถบริษัท"
+            className="divide-y divide-ink/10 border-y border-ink/10"
+            renderItem={(vehicle) => {
               const current = checkouts.find((item) => item.id === vehicle.activeCheckoutId)
               const overdue = current?.expectedReturnAt && new Date(current.expectedReturnAt).getTime() < now
               return (
-                <article key={vehicle.id} className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3">
+                <article key={vehicle.id} className="flex flex-wrap items-center justify-between gap-1 bg-white px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
                   <div>
                     <p className="font-semibold text-ink">{vehicle.name} · {vehicle.plate}</p>
                     {current && <p className="mt-1 text-xs text-ink-soft">ผู้ใช้ {current.employeeName} · กำหนดคืน {formatDateTime(current.expectedReturnAt)}</p>}
@@ -155,8 +160,8 @@ export default function HomeDashboard() {
                   </span>
                 </article>
               )
-            })}
-          </div>
+            }}
+          />
         )}
       </section>
     </main>

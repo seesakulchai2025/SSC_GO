@@ -556,8 +556,8 @@ export default function VehicleLog() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 pb-4">
+    <main className="page-container page-stack">
+      <header className="page-section-head border-b border-ink/10 pb-4">
         <div>
           <p className="font-mono text-xs uppercase text-brass-dark">Fleet log</p>
           <h1 className="font-display text-2xl font-semibold text-ink">ใช้รถบริษัท</h1>
@@ -601,7 +601,7 @@ export default function VehicleLog() {
           if (!event.currentTarget.contains(event.relatedTarget)) setIsFocusedCarousel(false)
         }}
       >
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="page-section-head mb-3 items-center">
           <div>
             <h2 className="font-display text-lg font-semibold text-ink">สถานะรถบริษัท</h2>
             <p className="text-xs text-ink-soft">ใช้งานอยู่ {activeVehicles.filter((vehicle) => vehicle.activeCheckoutId).length} จาก {activeVehicles.length} คัน</p>
@@ -610,8 +610,6 @@ export default function VehicleLog() {
             <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { setAutoPlayEnabled((enabled) => !enabled); setAutoPlayReset((value) => value + 1) }} disabled={activeVehicles.length < 2} className="btn-secondary px-3 py-2 text-xs" aria-label={autoPlayEnabled ? 'หยุดสไลด์อัตโนมัติ' : 'เล่นสไลด์อัตโนมัติ'}>
               {autoPlayEnabled ? 'หยุดอัตโนมัติ' : 'เล่นอัตโนมัติ'}
             </button>
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => goToSlide(activeSlide - 1)} disabled={activeVehicles.length < 2} aria-label="รถคันก่อนหน้า" className="btn-secondary grid size-10 place-items-center p-0 text-lg">←</button>
-            <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => goToSlide(activeSlide + 1)} disabled={activeVehicles.length < 2} aria-label="รถคันถัดไป" className="btn-secondary grid size-10 place-items-center p-0 text-lg">→</button>
           </div>
         </div>
         {activeVehicles.length === 0 ? (
@@ -644,6 +642,17 @@ export default function VehicleLog() {
                   </article>
                 )
               })}
+            </div>
+            <div className="mt-2 grid grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-2">
+              <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => goToSlide(activeSlide - 1)} disabled={activeVehicles.length < 2} aria-label="รถคันก่อนหน้า" className="btn-secondary grid size-10 place-items-center justify-self-start p-0 text-lg">←</button>
+              <div className="scrollbar-hidden flex min-w-0 max-w-full items-center justify-center gap-1 overflow-x-auto" role="group" aria-label="เลือกสไลด์รถ">
+                {activeVehicles.map((vehicle, index) => (
+                  <button key={vehicle.id} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => goToSlide(index)} aria-label={`แสดงรถคันที่ ${index + 1}`} aria-pressed={activeSlide === index} className="grid size-10 shrink-0 place-items-center rounded-full focus-visible:outline">
+                    <span className={`size-2 rounded-full ${activeSlide === index ? 'bg-ink' : 'bg-ink/20'}`} />
+                  </button>
+                ))}
+              </div>
+              <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => goToSlide(activeSlide + 1)} disabled={activeVehicles.length < 2} aria-label="รถคันถัดไป" className="btn-secondary grid size-10 place-items-center justify-self-end p-0 text-lg">→</button>
             </div>
           </>
         )}

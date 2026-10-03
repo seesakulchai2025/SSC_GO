@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { formatDateTimeDMY } from '../utils/dateUtils'
 import { notifyError } from '../components/ToastViewport'
 import VehicleUsagePrint from '../components/VehicleUsagePrint'
+import MobileSheetSection, { MobileList } from '../components/MobileSheetSection'
 
 function localDateInput(date) {
   const offset = date.getTimezoneOffset() * 60000
@@ -43,6 +44,8 @@ export default function AdminVehicleReports() {
   const [employees, setEmployees] = useState([])
   const [employeeSearch, setEmployeeSearch] = useState('')
   const [showEmployeePicker, setShowEmployeePicker] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterCount = [startDate !== monthStart, endDate !== today, status !== 'all', Boolean(employeeFilter)].filter(Boolean).length
 
   useEffect(() => {
     const stopCheckouts = onSnapshot(collection(db, 'vehicleCheckouts'), (snapshot) => {
@@ -97,20 +100,26 @@ export default function AdminVehicleReports() {
   }
 
   return (
-    <main className="report-compact-page mx-auto max-w-6xl space-y-6 px-4 py-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 pb-4">
+    <main className="report-panel report-compact-page page-stack">
+      <header className="page-section-head border-b border-ink/10 pb-4">
         <div>
           <p className="report-compact-eyebrow font-mono text-xs uppercase text-brass-dark">Fleet report</p>
           <h1 className="report-compact-heading font-display text-2xl font-semibold text-ink">รายงานใช้รถ</h1>
           <p className="report-compact-description report-compact-hide-mobile mt-1 text-sm text-ink-soft">กรองประวัติการเบิกและคืนรถ แล้วส่งออกหรือพิมพ์รายงาน</p>
         </div>
-        <div className="report-compact-actions no-print flex w-full flex-wrap gap-2 sm:w-auto">
-          <button type="button" onClick={exportCsv} disabled={filteredCheckouts.length === 0} className="btn-secondary flex-1 px-4 py-2 text-sm sm:flex-none">↓ CSV ({filteredCheckouts.length})</button>
-          <button type="button" onClick={printPdfReport} disabled={filteredCheckouts.length === 0} className="btn-primary flex-1 px-4 py-2 text-sm sm:flex-none">พิมพ์ / PDF</button>
+        <div className="no-print flex w-full gap-2 sm:w-auto">
+          <MobileSheetSection title="ส่งออก" label="ส่งออก" icon="↓" triggerClassName="flex-1">
+            <div className="report-compact-actions flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:w-auto">
+              <button type="button" onClick={exportCsv} disabled={filteredCheckouts.length === 0} className="btn-secondary flex-1 px-4 py-2 text-sm sm:flex-none">↓ CSV ({filteredCheckouts.length})</button>
+              <button type="button" onClick={printPdfReport} disabled={filteredCheckouts.length === 0} className="btn-primary flex-1 px-4 py-2 text-sm sm:flex-none">พิมพ์ / PDF</button>
+            </div>
+          </MobileSheetSection>
+          <button type="button" onClick={() => setFilterOpen(true)} className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-ink sm:hidden">ตัวกรอง{filterCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-brass px-1.5 text-[11px] font-bold leading-5 text-ink">{filterCount}</span>}</button>
         </div>
       </header>
 
-      <section className="report-compact-filter-grid no-print grid grid-cols-2 gap-3 border-b border-ink/10 pb-5 lg:grid-cols-4">
+      <MobileSheetSection title="ตัวกรอง" hideTrigger open={filterOpen} onOpenChange={setFilterOpen} footer={<button type="button" onClick={() => setFilterOpen(false)} className="btn-primary w-full">ดูผลลัพธ์ ({filteredCheckouts.length})</button>}>
+      <section className="report-compact-filter-grid no-print grid grid-cols-2 gap-3 border-b border-ink/10 pb-5 max-sm:border-0 max-sm:pb-0 lg:grid-cols-4">
         <label className="report-compact-label text-sm font-medium text-ink">ตั้งแต่<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="report-compact-control input-field mt-1" /></label>
         <label className="report-compact-label text-sm font-medium text-ink">ถึงวันที่<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="report-compact-control input-field mt-1" /></label>
         <label className="report-compact-label text-sm font-medium text-ink">สถานะ<select value={status} onChange={(event) => setStatus(event.target.value)} className="report-compact-control input-field mt-1"><option value="all">ทั้งหมด</option><option value="กำลังใช้งาน">กำลังใช้งาน</option><option value="เกินกำหนด">เกินกำหนด</option><option value="คืนแล้ว">คืนแล้ว</option></select></label>
@@ -122,6 +131,7 @@ export default function AdminVehicleReports() {
           </button>
         </div>
       </section>
+      </MobileSheetSection>
 
       <section className="vehicle-report-print space-y-4">
       <div className="report-compact-summary flex flex-wrap gap-4 text-sm text-ink-soft">
@@ -130,8 +140,7 @@ export default function AdminVehicleReports() {
         <span>คืนแล้ว {filteredCheckouts.filter((item) => Boolean(item.returnedAt)).length} รายการ</span>
       </div>
 
-      <div className="vehicle-report-mobile space-y-3 lg:hidden">
-        {filteredCheckouts.map((record) => {
+      <MobileList items={filteredCheckouts} limit={4} title="รายการใช้รถทั้งหมด" className="vehicle-report-mobile space-y-3 lg:hidden print:hidden" renderItem={(record) => {
           const recordStatus = checkoutStatus(record, now)
           return (
             <article key={record.id} className="report-compact-card border-l-2 border-brass bg-white p-3 shadow-stamp">
@@ -151,11 +160,10 @@ export default function AdminVehicleReports() {
               {record.returnedAt && <div className="mt-3 flex justify-end"><VehicleUsagePrint checkout={record} /></div>}
             </article>
           )
-        })}
-        {filteredCheckouts.length === 0 && <p className="report-compact-empty py-8 text-center text-sm text-ink-soft">ไม่พบรายการตามตัวกรอง</p>}
-      </div>
+        }} />
+      {filteredCheckouts.length === 0 && <p className="report-compact-empty py-8 text-center text-sm text-ink-soft lg:hidden">ไม่พบรายการตามตัวกรอง</p>}
 
-      <div className="vehicle-report-desktop hidden overflow-x-auto border-y border-ink/10 lg:block">
+      <div className="vehicle-report-desktop hidden overflow-x-auto border-y border-ink/10 lg:block print:block">
         <table className="w-full min-w-[760px] border-collapse text-left text-sm">
           <thead><tr className="border-b border-ink/10 text-xs text-ink-soft"><th className="px-3 py-3 font-semibold">รถ / ทะเบียน</th><th className="px-3 py-3 font-semibold">พนักงาน / วัตถุประสงค์</th><th className="px-3 py-3 font-semibold">เวลาเบิก</th><th className="px-3 py-3 font-semibold">กำหนดคืน</th><th className="px-3 py-3 font-semibold">คืนจริง</th><th className="px-3 py-3 font-semibold">สถานะ</th><th className="no-print px-3 py-3 font-semibold">ใบใช้รถ</th></tr></thead>
           <tbody>
@@ -180,7 +188,7 @@ export default function AdminVehicleReports() {
       </section>
 
       {showEmployeePicker && (
-        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-3 sm:p-6" onClick={() => setShowEmployeePicker(false)}>
+        <div className="no-print fixed inset-0 z-[80] flex items-center justify-center bg-ink/50 p-3 sm:p-6" onClick={() => setShowEmployeePicker(false)}>
           <section role="dialog" aria-modal="true" aria-labelledby="vehicle-employee-picker-title" onClick={(event) => event.stopPropagation()} className="card modal-frame w-full max-w-lg">
             <header className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
               <h2 id="vehicle-employee-picker-title" className="font-display text-lg font-semibold text-ink">เลือกพนักงาน</h2>

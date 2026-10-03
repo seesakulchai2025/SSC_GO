@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { formatThaiDate, formatThaiDateLong, todayISO } from '../utils/dateUtils'
 import { buildCompensatoryHolidays, fetchThaiPublicHolidays } from '../utils/holidaySync'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
+import MobileSheetSection, { MobileInfo, MobileList } from '../components/MobileSheetSection'
 
 export default function AdminHolidays() {
   const [holidays, setHolidays] = useState([])
@@ -117,16 +118,25 @@ export default function AdminHolidays() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">วันหยุดราชการ / นักขัตฤกษ์</h1>
-        <p className="text-sm text-ink-soft mt-1">
+    <div className="page-container page-stack">
+      <div className="page-section-head page-section-head--stacked">
+        <div className="flex items-center gap-1">
+          <h1 className="font-display text-lg font-semibold text-ink sm:text-2xl">วันหยุดราชการ / นักขัตฤกษ์</h1>
+          <span className="sm:hidden">
+            <MobileInfo title="วันหยุดราชการ / นักขัตฤกษ์">
+              <p className="text-sm text-ink-soft">วันทำการของร้านคือ จันทร์–เสาร์ (หยุดวันอาทิตย์เป็นค่าเริ่มต้น) ระบบดึงวันหยุดราชการจริงของไทยมาให้อัตโนมัติทุกปี (ปีปัจจุบันและปีถัดไป) — ใช้สวิตช์เปิด/ปิดเพื่อเลือกว่าวันไหนร้านหยุดจริง วันไหนเปิดตามปกติแม้เป็นวันหยุดราชการ</p>
+            </MobileInfo>
+          </span>
+        </div>
+        <p className="hidden text-sm text-ink-soft mt-1 sm:block">
           วันทำการของร้านคือ จันทร์–เสาร์ (หยุดวันอาทิตย์เป็นค่าเริ่มต้น) ระบบดึงวันหยุดราชการจริงของไทยมาให้อัตโนมัติทุกปี
           (ปีปัจจุบันและปีถัดไป) — ใช้สวิตช์เปิด/ปิดเพื่อเลือกว่าวันไหนร้านหยุดจริง วันไหนเปิดตามปกติแม้เป็นวันหยุดราชการ
         </p>
       </div>
 
-      <div className="card p-4 bg-brass/5 border-brass/20 space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:contents">
+      <MobileSheetSection title="ดึง / คำนวณวันหยุด" label="ดึง / ชดเชย" icon="↻">
+      <div className="card p-4 bg-brass/5 border-brass/20 space-y-3 max-sm:mb-3">
         <p className="text-sm text-ink">
           <span className="font-semibold">ดึงวันหยุดจากอินเทอร์เน็ตด้วยตนเอง</span> — ปกติระบบดึงให้อัตโนมัติอยู่แล้วเมื่อแอดมินเข้าใช้งาน
           แต่กดปุ่มนี้ได้ถ้าอยากดึงซ้ำ หรือดึงของปีอื่นเพิ่ม
@@ -161,9 +171,11 @@ export default function AdminHolidays() {
         </div>
         {compensatoryMsg && <p className="text-sm text-ink-soft">{compensatoryMsg}</p>}
       </div>
+      </MobileSheetSection>
 
+      <MobileSheetSection title="เพิ่มวันหยุดเอง" label="เพิ่มวันหยุด" icon="+">
       <form onSubmit={addHoliday} className="card p-4 space-y-3">
-        <p className="text-sm font-semibold text-ink">เพิ่มวันหยุดเอง</p>
+        <p className="sheet-dup-title text-sm font-semibold text-ink">เพิ่มวันหยุดเอง</p>
         <div className="grid grid-cols-2 gap-3">
           <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input-field" required />
           <input placeholder="ชื่อวันหยุด เช่น วันหยุดพิเศษของร้าน" value={newName} onChange={(e) => setNewName(e.target.value)} className="input-field" required />
@@ -171,13 +183,14 @@ export default function AdminHolidays() {
         {error && <p className="text-clay text-sm">{error}</p>}
         <button className="btn-primary py-2 px-4 text-sm">+ เพิ่มวันหยุด</button>
       </form>
+      </MobileSheetSection>
+      </div>
 
-      <div className="space-y-2">
-        {holidays.length === 0 && <p className="text-ink-soft text-sm py-6 text-center">ยังไม่มีวันหยุดที่เพิ่มไว้</p>}
-        {holidays.map((h) => {
+      {holidays.length === 0 && <p className="text-ink-soft text-sm py-6 text-center">ยังไม่มีวันหยุดที่เพิ่มไว้</p>}
+      <MobileList items={holidays} limit={5} title="วันหยุดทั้งหมด" className="space-y-2" renderItem={(h) => {
           const enabled = h.enabled !== false
           return (
-            <div key={h.id} className="card p-4 flex items-center justify-between gap-3">
+            <div key={h.id} className="card p-3 sm:p-4 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold text-ink">
                   {h.name}
@@ -204,8 +217,7 @@ export default function AdminHolidays() {
               </div>
             </div>
           )
-        })}
-      </div>
+        }} />
     </div>
   )
 }

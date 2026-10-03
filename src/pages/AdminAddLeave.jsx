@@ -117,13 +117,13 @@ export default function AdminAddLeave() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div>
+    <div className="page-container page-stack">
+      <div className="page-section-head page-section-head--stacked">
         <h1 className="font-display text-2xl font-semibold text-ink">ลงวันลาให้พนักงาน</h1>
         <p className="text-sm text-ink-soft mt-1">รายการที่บันทึกจากหน้านี้จะถูกอนุมัติทันที (ไม่ต้องรออนุมัติ)</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="card p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="card page-card space-y-4">
         <div>
           <label className="text-sm text-ink-soft mb-1 block">พนักงาน</label>
           <select value={employeeId} onChange={(e) => { setEmployeeId(e.target.value); setLeaveTypeId('') }} className="input-field" required>
