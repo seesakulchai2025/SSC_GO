@@ -5,7 +5,8 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import LeaveBalanceCard from '../components/LeaveBalanceCard'
 import TodayLeaveCard from '../components/TodayLeaveCard'
-import { formatDateDMY, formatDateTimeDMY, todayISO } from '../utils/dateUtils'
+import { attendanceDay, formatDateDMY, formatDateTimeDMY, todayISO } from '../utils/dateUtils'
+import { isOffsite, summarizeMonthlyAttendance } from '../utils/attendanceUtils'
 import { filterVisibleLeaveTypes } from '../utils/leaveTypeAccess'
 import { notifyError } from '../components/ToastViewport'
 import { MobileList } from '../components/MobileSheetSection'
@@ -39,7 +40,7 @@ export default function HomeDashboard() {
     }, () => notifyError('โหลดผู้ใช้งานรถไม่สำเร็จ'))
     const attendanceQuery = query(collection(db, 'attendance'), where('employeeId', '==', employee.id))
     const stopAttendance = onSnapshot(attendanceQuery, (snapshot) => {
-      setAttendance(snapshot.docs.map((item) => item.data()).filter((item) => item.attendanceDate >= monthStart && item.attendanceDate <= today))
+      setAttendance(snapshot.docs.map((item) => item.data()).filter((item) => attendanceDay(item.attendanceDate) <= today))
     }, () => notifyError('โหลดสถิติลงเวลาไม่สำเร็จ'))
     const stopLeaveTypes = onSnapshot(collection(db, 'leaveTypes'), (snapshot) => {
       setLeaveTypes(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })))
@@ -57,9 +58,10 @@ export default function HomeDashboard() {
     }
   }, [employee.id, monthStart, today])
 
-  const attendanceDays = attendance.filter((record) => record.events?.checkIn || record.checkInClientAt).length
-  const completeDays = attendance.filter((record) => ['checkIn', 'lunchOut', 'lunchReturn', 'checkOut'].every((event) => record.events?.[event])).length
-  const lateMinutes = attendance.reduce((total, record) => total + (record.lateMinutes || 0), 0)
+  const monthAttendance = attendance.filter((record) => attendanceDay(record.attendanceDate)?.slice(0, 7) === today.slice(0, 7))
+  const attendanceDays = monthAttendance.filter((record) => isOffsite(record) || record.events?.checkIn || record.checkInClientAt).length
+  const completeDays = monthAttendance.filter((record) => isOffsite(record) || ['checkIn', 'lunchOut', 'lunchReturn', 'checkOut'].every((event) => record.events?.[event])).length
+  const { lateMinutes } = summarizeMonthlyAttendance(attendance, today.slice(0, 7))
   const currentYear = new Date().getFullYear()
   const usedByType = {}
   leaveRequests.forEach((request) => {
@@ -97,13 +99,13 @@ export default function HomeDashboard() {
         <div className="card-grid card-grid--three">
           {[
             ['วันที่เข้างาน', attendanceDays, 'วัน'],
-            ['ลงเวลาครบ 4 ขั้น', completeDays, 'วัน'],
+            ['ลงเวลาครบ / นอกสถานที่', completeDays, 'วัน'],
             ['สายรวม', lateMinutes, 'นาที'],
           ].map(([label, value, unit]) => (
             <div key={label} className="flex min-h-16 min-w-0 flex-col sm:min-h-20 justify-between rounded-card border border-border bg-white px-2 py-2 shadow-stamp sm:px-4 sm:py-3">
-              <p className="line-clamp-2 min-h-8 break-words text-[11px] leading-4 text-ink-soft sm:min-h-0 sm:text-xs">{label}</p>
+              <p className="line-clamp-2 min-h-8 break-words text-xs text-ink-soft sm:min-h-0">{label}</p>
               <p className="mt-1 min-w-0 font-display text-lg font-semibold leading-6 text-ink sm:text-xl">
-                {value} <span className="text-[10px] font-normal text-ink-soft sm:text-xs">{unit}</span>
+                {value} <span className="text-xs font-normal text-ink-soft">{unit}</span>
               </p>
             </div>
           ))}

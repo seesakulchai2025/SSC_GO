@@ -181,7 +181,7 @@ export default function MobileSheetSection({
       <span className="min-w-0 flex-1 truncate">{text}</span>
       {summary && <span className="max-w-[45%] truncate text-xs font-normal text-ink-soft">{summary}</span>}
       {badge !== null && badge !== undefined && badge !== false && badge !== 0 && (
-        <span className="grid min-w-5 place-items-center rounded-full bg-brass px-1.5 text-[11px] font-bold leading-5 text-ink">{badge}</span>
+        <span className="grid min-w-5 place-items-center rounded-full bg-brass px-1.5 text-xs font-bold leading-5 text-ink">{badge}</span>
       )}
       <Chevron open={open} direction={mobileMode === 'collapse' ? 'down' : 'right'} />
     </button>

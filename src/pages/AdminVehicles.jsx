@@ -195,7 +195,7 @@ export default function AdminVehicles() {
   return (
     <main className="page-container page-stack">
       <header className="page-section-head page-section-head--stacked border-b border-ink/10 pb-2 sm:pb-4">
-        <p className="hidden font-mono text-[10px] uppercase text-ink-soft sm:block">Fleet settings</p>
+        <p className="hidden font-mono text-xs uppercase text-ink-soft sm:block">Fleet settings</p>
         <div className="flex items-center gap-1">
           <h1 className="font-display text-lg font-semibold text-ink sm:text-2xl">จัดการรถบริษัท</h1>
           <span className="sm:hidden">

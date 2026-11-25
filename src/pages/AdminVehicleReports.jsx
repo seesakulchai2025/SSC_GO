@@ -114,7 +114,7 @@ export default function AdminVehicleReports() {
               <button type="button" onClick={printPdfReport} disabled={filteredCheckouts.length === 0} className="btn-primary flex-1 px-4 py-2 text-sm sm:flex-none">พิมพ์ / PDF</button>
             </div>
           </MobileSheetSection>
-          <button type="button" onClick={() => setFilterOpen(true)} className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-ink sm:hidden">ตัวกรอง{filterCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-brass px-1.5 text-[11px] font-bold leading-5 text-ink">{filterCount}</span>}</button>
+          <button type="button" onClick={() => setFilterOpen(true)} className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-ink sm:hidden">ตัวกรอง{filterCount > 0 && <span className="grid min-w-5 place-items-center rounded-full bg-brass px-1.5 text-xs font-bold leading-5 text-ink">{filterCount}</span>}</button>
         </div>
       </header>
 

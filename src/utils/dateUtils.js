@@ -24,6 +24,45 @@ export function parseDateValue(value) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function validCalendarDate(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return year >= 100 && date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+export function attendanceDay(value) {
+  if (typeof value === 'string') {
+    const isoDate = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    const thaiDate = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value)
+    if (isoDate || thaiDate) {
+      const year = isoDate ? Number(isoDate[1]) : Number(thaiDate[3]) - 543
+      const month = Number(isoDate ? isoDate[2] : thaiDate[2])
+      const day = Number(isoDate ? isoDate[3] : thaiDate[1])
+      if (!validCalendarDate(year, month, day)) return null
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return null
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+    if (!validCalendarDate(year, month, day)) return null
+    value = new Date(value)
+  } else if (value && typeof value.toDate === 'function') {
+    value = value.toDate()
+  }
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(value)
+  const year = parts.find((part) => part.type === 'year').value
+  const month = parts.find((part) => part.type === 'month').value
+  const day = parts.find((part) => part.type === 'day').value
+  return `${year}-${month}-${day}`
+}
+
+export function attendanceMonth(value) {
+  return attendanceDay(value)?.slice(0, 7) || null
+}
+
+export function filterAttendanceByMonth(records, month) {
+  return month ? records.filter((record) => attendanceMonth(record.attendanceDate) === month) : []
+}
+
 export function formatDateDMY(value) {
   const date = parseDateValue(value)
   if (!date || Number.isNaN(date.getTime())) return '-'
@@ -39,6 +78,12 @@ export function formatDateTimeDMY(value, { seconds = false } = {}) {
   const minutes = String(date.getMinutes()).padStart(2, '0')
   const time = seconds ? `${hours}:${minutes}:${String(date.getSeconds()).padStart(2, '0')}` : `${hours}:${minutes}`
   return `${formatDateDMY(date)} ${time}`
+}
+
+export function bangkokTime(value, { seconds = false } = {}) {
+  const date = parseDateValue(value)
+  if (!date || Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}), hourCycle: 'h23' }).format(date)
 }
 
 export function calcLeaveDays(startStr, endStr, holidaySet = new Set()) {
@@ -126,5 +171,5 @@ export function getMonthGrid(year, monthIndex) {
 }
 
 export function todayISO() {
-  return toISODate(new Date())
+  return attendanceDay(new Date())
 }

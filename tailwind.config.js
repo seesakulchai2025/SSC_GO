@@ -46,6 +46,10 @@ export default {
         body: ['"Noto Sans Thai"', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.25rem' }],
+        sm: ['0.875rem', { lineHeight: '1.375rem' }],
+      },
       boxShadow: {
         stamp: '0 1px 3px rgb(var(--color-text-rgb) / 8%)',
       },

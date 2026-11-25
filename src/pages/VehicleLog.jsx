@@ -94,13 +94,13 @@ export function CheckoutTimerRing({ vehicle, checkout, now }) {
           <span className="text-xs font-semibold" style={{ color: 'var(--color-approved)' }}>ว่าง</span>
         ) : overdue ? (
           <>
-            <span className="text-[10px] font-semibold sm:text-xs" style={{ color: 'var(--color-rejected-text)' }}>เกินเวลา</span>
-            <span className="font-mono text-[10px] font-semibold tabular-nums sm:text-xs" style={{ color: 'var(--color-rejected-text)' }}>+{formatCountdown(-remaining)}</span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--color-rejected-text)' }}>เกินเวลา</span>
+            <span className="font-mono text-xs font-semibold tabular-nums" style={{ color: 'var(--color-rejected-text)' }}>+{formatCountdown(-remaining)}</span>
           </>
         ) : (
           <>
             <span className="text-xs font-semibold" style={{ color: 'var(--color-pending-text)' }}>ไม่ว่าง</span>
-            <span className="font-mono text-[10px] font-semibold tabular-nums sm:text-xs" style={{ color: 'var(--color-pending-text)' }}>{remaining == null ? '--:--:--' : formatCountdown(remaining)}</span>
+            <span className="font-mono text-xs font-semibold tabular-nums" style={{ color: 'var(--color-pending-text)' }}>{remaining == null ? '--:--:--' : formatCountdown(remaining)}</span>
           </>
         )}
       </div>
@@ -637,7 +637,7 @@ export default function VehicleLog() {
                       <p title={brand} className="truncate text-sm font-bold text-ink sm:text-base">{brand || '-'}</p>
                       <p title={model} className="truncate text-xs text-ink-soft sm:text-sm">{model || '-'}</p>
                       <p className="truncate font-mono text-xs text-ink-soft sm:text-sm">ทะเบียน {vehicle.plate || '-'}</p>
-                      <p title={insuranceExpiry || undefined} className="truncate text-[10px] text-ink-soft sm:text-xs">{insuranceExpiry ? `ประกันหมดอายุ ${insuranceExpiry}` : 'ประกัน: ไม่ระบุ'}</p>
+                      <p title={insuranceExpiry || undefined} className="truncate text-xs text-ink-soft">{insuranceExpiry ? `ประกันหมดอายุ ${insuranceExpiry}` : 'ประกัน: ไม่ระบุ'}</p>
                     </div>
                   </article>
                 )

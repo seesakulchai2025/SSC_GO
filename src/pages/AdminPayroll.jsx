@@ -3,9 +3,9 @@ import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'fi
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useHolidays } from '../context/HolidaysContext'
-import { getAttendanceEvents } from '../utils/attendanceUtils'
-import { formatThaiDate } from '../utils/dateUtils'
-import { calculateSpecialPay, defaultPayrollPeriod, getMonthlyLeaveSummary, isPayrollClosingDay, isPayrollPeriodClosed } from '../utils/payrollUtils'
+import { hasAttendanceDeductionMismatch, isOffsite, summarizeMonthlyAttendance } from '../utils/attendanceUtils'
+import { attendanceDay, attendanceMonth, filterAttendanceByMonth, formatThaiDate } from '../utils/dateUtils'
+import { calculateAttendanceBonus, calculateBasePay, calculateSpecialPay, defaultPayrollPeriod, getMonthlyLeaveSummary, isPayrollClosingDay, missingSalaryMessage, normalizeEmploymentStatus, parseBaseSalary } from '../utils/payrollUtils'
 import PayrollSlipModal from '../components/PayrollSlipModal'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
 import MobileSheetSection, { MobileInfo, MobileList } from '../components/MobileSheetSection'
@@ -24,8 +24,8 @@ function specialPayAmount(row) {
 }
 
 function comparePayrollEmployees(left, right, profileByEmployee = new Map()) {
-  const leftStatus = left.employmentStatus || profileByEmployee.get(left.id)?.employmentStatus
-  const rightStatus = right.employmentStatus || profileByEmployee.get(right.id)?.employmentStatus
+  const leftStatus = normalizeEmploymentStatus(left.employmentStatus) || normalizeEmploymentStatus(profileByEmployee.get(left.id)?.employmentStatus)
+  const rightStatus = normalizeEmploymentStatus(right.employmentStatus) || normalizeEmploymentStatus(profileByEmployee.get(right.id)?.employmentStatus)
   const leftOrder = EMPLOYMENT_STATUS_ORDER[leftStatus] ?? 1
   const rightOrder = EMPLOYMENT_STATUS_ORDER[rightStatus] ?? 1
   return leftOrder - rightOrder || (left.name || '').localeCompare(right.name || '', 'th')
@@ -112,15 +112,14 @@ export default function AdminPayroll() {
     }, () => setError('โหลด snapshot เงินเดือนไม่สำเร็จ'))
   }, [period])
 
-  const periodAttendance = period
-    ? attendance.filter((record) => record.attendanceDate?.startsWith(period))
-    : []
-  const periodIsClosed = isPayrollPeriodClosed(period)
+  const invalidAttendanceCount = attendance.filter((record) => !attendanceMonth(record.attendanceDate)).length
+  const periodAttendance = filterAttendanceByMonth(attendance, period)
+  const deductionMismatchCount = periodAttendance.filter(hasAttendanceDeductionMismatch).length
   const leaveSummaryByEmployee = getMonthlyLeaveSummary(leaveRequests, employees, leaveTypes, period, holidayDates)
   const payrollProfileByEmployee = new Map(payrollProfiles.map((profile) => [profile.id, profile]))
   const showWorkDaysColumn = employees.some((employee) => {
     if (employee.role === 'admin') return false
-    const status = employee.employmentStatus || payrollProfileByEmployee.get(employee.id)?.employmentStatus
+    const status = normalizeEmploymentStatus(employee.employmentStatus) || normalizeEmploymentStatus(payrollProfileByEmployee.get(employee.id)?.employmentStatus)
     return ['intern', 'probation'].includes(status)
   })
   const rows = employees
@@ -128,33 +127,24 @@ export default function AdminPayroll() {
     .sort((a, b) => comparePayrollEmployees(a, b, payrollProfileByEmployee))
     .map((employee) => {
       const records = periodAttendance.filter((record) => record.employeeId === employee.id)
-      const attendanceDays = new Set(records.map((record) => record.attendanceDate).filter(Boolean)).size
-      const lateMinutes = records.reduce((total, record) => {
-        const events = getAttendanceEvents(record)
-        if (!record.events) return total + (Number(record.lateMinutes) || 0)
-        return total + Object.values(events).reduce((dayTotal, scan) => dayTotal + (Number(scan.lateMinutes) || 0), 0)
-      }, 0)
-      const lateDeduction = lateMinutes
-      const overtimeMinutes = records.reduce((total, record) => total + (Number(record.overtimeMinutes) || 0), 0)
+      const attendanceDays = new Set(records.filter((record) => record.offsite?.status !== 'cancelled' || Object.keys(record.events || {}).length || record.checkInClientAt).map((record) => attendanceDay(record.attendanceDate)).filter(Boolean)).size
+      const { lateMinutes, deductionBaht: lateDeduction } = summarizeMonthlyAttendance(records, period)
+      const overtimeMinutes = records.reduce((total, record) => total + (isOffsite(record) ? 0 : Number(record.overtimeMinutes) || 0), 0)
       const payrollProfile = payrollProfileByEmployee.get(employee.id) || {}
-      const employmentStatus = employee.employmentStatus || payrollProfile.employmentStatus || ''
+      const employmentStatus = normalizeEmploymentStatus(employee.employmentStatus) || normalizeEmploymentStatus(payrollProfile.employmentStatus)
       const companyPaidSalary = employmentStatus === 'permanent_pc'
-      const baseSalary = Number(payrollProfile.baseSalary) || 0
+      const baseSalary = parseBaseSalary(payrollProfile.baseSalary ?? employee.baseSalary)
       const dailyWage = employmentStatus === 'intern' || employmentStatus === 'probation'
       const workDays = dailyWage ? attendanceDays : null
-      const salaryConfigured = companyPaidSalary || (Boolean(EMPLOYMENT_STATUS_LABELS[employmentStatus]) && baseSalary > 0)
-      const basePay = companyPaidSalary ? 0 : salaryConfigured && workDays != null
-        ? dailyWage ? baseSalary * workDays : baseSalary
-        : null
-      const bonusEligible = periodIsClosed && attendanceDays > 0 && lateMinutes <= 100
-      const bonus = bonusEligible ? Number(payrollProfile.attendanceBonus) || 0 : 0
+      const basePay = calculateBasePay(employmentStatus, baseSalary, attendanceDays)
+      const { bonusEligible, bonus } = calculateAttendanceBonus(attendanceDays, lateMinutes, payrollProfile.attendanceBonus)
       const overtimeRatePerHour = Number(payrollProfile.overtimeRatePerHour) || 0
       const specialPay = calculateSpecialPay(overtimeMinutes, overtimeRatePerHour, bonus)
       const overtimePay = overtimeMinutes / 60 * overtimeRatePerHour
       const employmentDeposit = companyPaidSalary ? 0 : Number(payrollProfile.employmentDeposit) || 0
       const socialSecurityDeduction = companyPaidSalary ? 0 : Number(payrollProfile.socialSecurityDeduction) || 0
       const leaveSummary = leaveSummaryByEmployee.get(employee.id) || { leaveDaysByType: {}, overQuotaByType: {}, overQuotaDays: 0 }
-      const dailyDeductionRate = employmentStatus === 'permanent' ? baseSalary / 30 : companyPaidSalary ? 0 : baseSalary
+      const dailyDeductionRate = employmentStatus === 'permanent' ? (baseSalary ?? 0) / 30 : companyPaidSalary ? 0 : baseSalary ?? 0
       const overQuotaLeaveDeduction = leaveSummary.overQuotaDays * dailyDeductionRate
       const netPay = basePay == null ? null : basePay + specialPay - lateDeduction - employmentDeposit - socialSecurityDeduction - overQuotaLeaveDeduction
 
@@ -184,7 +174,7 @@ export default function AdminPayroll() {
     })
   useEffect(() => {
     if (!period || !isPayrollClosingDay() || period !== defaultPayrollPeriod() || payrollSnapshot) return
-    if (!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded) return
+    if (!employeesLoaded || !attendanceLoaded || !leaveTypesLoaded || !payrollProfilesLoaded || invalidAttendanceCount) return
     if (closeAttempted.current.has(period)) return
 
     if (rows.some((row) => row.netPay == null)) {
@@ -240,7 +230,7 @@ export default function AdminPayroll() {
       }
     }
     closePayrollPeriod()
-  }, [period, payrollSnapshot, employeesLoaded, attendanceLoaded, leaveTypesLoaded, payrollProfilesLoaded, rows, admin.id])
+  }, [period, payrollSnapshot, employeesLoaded, attendanceLoaded, leaveTypesLoaded, payrollProfilesLoaded, invalidAttendanceCount, rows, admin.id])
 
   const employeeRoles = new Map(employees.map((employee) => [employee.id, employee.role]))
   const displayedRows = (payrollSnapshot?.rows || rows)
@@ -251,8 +241,8 @@ export default function AdminPayroll() {
       return { ...row, lateDeduction, netPay: row.netPay - lateDeduction }
     })
     .sort((a, b) => comparePayrollEmployees(a, b, payrollProfileByEmployee))
-  const displayedConfiguredRows = displayedRows.filter((row) => row.netPay != null)
-  const displayedTotalNetPay = displayedConfiguredRows.reduce((total, row) => total + row.netPay, 0)
+  const displayedConfiguredRows = displayedRows.filter((row) => !row.companyPaidSalary && row.netPay != null)
+  const displayedTotalNetPay = displayedRows.reduce((total, row) => total + (row.netPay ?? 0), 0)
   async function exportPayrollExcel() {
     try {
       const XLSX = await import('xlsx')
@@ -261,9 +251,10 @@ export default function AdminPayroll() {
       พนักงาน: row.name,
       สถานะ: EMPLOYMENT_STATUS_LABELS[row.employmentStatus] || '',
       ...(row.dailyWage ? { วันทำงาน: row.workDays ?? '' } : {}),
-      ค่าจ้าง: row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay ?? '',
+      ค่าจ้าง: row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay ?? missingSalaryMessage(row),
       สาย: row.lateMinutes,
       หักค่าสาย: row.lateDeduction,
+      เบี้ยขยัน: row.bonus ?? '',
       พิเศษ: specialPayAmount(row),
       หักลาเกินโควตา: row.overQuotaLeaveDeduction,
       เงินประกัน: row.employmentDeposit,
@@ -295,7 +286,7 @@ export default function AdminPayroll() {
               <MobileInfo title="เงินเดือน">
                 <div className="space-y-3 text-sm text-ink-soft">
                   <p>คำนวณจากข้อมูลพนักงานและเวลาเข้างานของงวดที่เลือก</p>
-                  <p>พนักงานฝึกงาน/ทดลองงานคำนวณวันทำงานจากรายการลงเวลาอัตโนมัติ เบี้ยขยันประเมินเมื่อปิดงวดแล้วและมีข้อมูลลงเวลาโดยสายรวมไม่เกิน 100 นาที ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
+                  <p>พนักงานฝึกงาน/ทดลองงานคำนวณวันทำงานจากรายการลงเวลาอัตโนมัติ เบี้ยขยันคำนวณเมื่อมีข้อมูลลงเวลาและสายรวมไม่เกิน 100 นาทีในงวด ยอดก่อนปิดงวดอาจเปลี่ยนแปลง ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
                 </div>
               </MobileInfo>
             </span>
@@ -318,6 +309,12 @@ export default function AdminPayroll() {
       </header>
 
       {error && <p role="alert" className="text-sm text-clay">{error}</p>}
+      <p className="rounded-md bg-sage-light px-3 py-2 font-semibold text-ink">งวดเดือน {period ? formatThaiDate(`${period}-01`) : 'ยังไม่ได้เลือก'}</p>
+      {isPayrollClosingDay() && period === defaultPayrollPeriod() && <p className="text-sm text-brass-dark">วันนี้เป็นวันที่ 1 ระบบเลือกงวดเดือนก่อนโดยอัตโนมัติ</p>}
+      {payrollSnapshot && <p className="text-sm text-brass-dark">งวดนี้ปิดแล้ว แสดงยอดที่บันทึกไว้ การแก้เวลาหลังปิดงวดจะไม่ปรับยอดนี้อัตโนมัติ กรุณาตรวจสอบก่อนใช้งาน</p>}
+      {!payrollSnapshot && <p className="text-sm text-ink-soft">เบี้ยขยันและยอดสุทธิก่อนปิดงวดเป็นยอดประมาณการ อาจเปลี่ยนตามเวลาลงงานในงวด</p>}
+      {invalidAttendanceCount > 0 && <p role="alert" className="text-sm text-clay">พบรายการลงเวลา {invalidAttendanceCount} รายการที่มีวันที่ไม่ถูกต้อง จึงไม่รวมในการคำนวณและไม่สามารถปิดงวดอัตโนมัติได้ กรุณาตรวจสอบข้อมูล</p>}
+      {deductionMismatchCount > 0 && <p role="alert" className="text-sm text-clay">พบ {deductionMismatchCount} รายการในงวดที่ยอดหักบันทึกไว้ไม่ตรงกับนาทีสายหรือไม่ถูกต้อง กรุณาตรวจสอบก่อนใช้ยอดเงินเดือน</p>}
 
       <section className="payroll-report-summary grid grid-cols-3 gap-2 border-y border-ink/10 py-2 sm:gap-4 sm:py-4">
         <div>
@@ -351,13 +348,13 @@ export default function AdminPayroll() {
                 <span className="flex items-start justify-between gap-2">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink">{row.name}</span>
-                    <span className="block text-[11px] text-ink-soft">{EMPLOYMENT_STATUS_LABELS[row.employmentStatus] || 'ยังไม่ระบุสถานะ'}</span>
+                    <span className="block text-xs text-ink-soft">{EMPLOYMENT_STATUS_LABELS[row.employmentStatus] || 'ยังไม่ระบุสถานะ'}</span>
                   </span>
                   <span className="shrink-0 font-mono text-sm font-semibold text-ink">{row.netPay == null ? 'ยังคำนวณไม่ได้' : `${money.format(row.netPay)} บาท`}</span>
                 </span>
-                <span className="mt-1 block text-[11px] leading-4 text-ink-soft">
+                <span className="mt-1 block text-xs text-ink-soft">
                   {showWorkDaysColumn && row.dailyWage ? `${payrollSnapshot ? row.workDays : row.attendanceDays} วัน · ` : ''}
-                  ค่าจ้าง {row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? 'ตั้งค่าข้อมูล' : money.format(row.basePay)} · สาย {row.lateMinutes} นาที (หัก {money.format(row.lateDeduction)}) · พิเศษ {money.format(specialPayAmount(row))} · หักลาเกิน {money.format(row.overQuotaLeaveDeduction)} · ประกันงาน {money.format(row.employmentDeposit)} · ประกันสังคม {money.format(row.socialSecurityDeduction)}
+                  ค่าจ้าง {row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? missingSalaryMessage(row) : money.format(row.basePay)} · สาย {row.lateMinutes} นาที (หัก {money.format(row.lateDeduction)}) · เบี้ยขยัน {row.bonus == null ? 'ไม่ระบุ' : `${money.format(row.bonus)} บาท`} · พิเศษรวม {money.format(specialPayAmount(row))} · หักลาเกิน {money.format(row.overQuotaLeaveDeduction)} · ประกันงาน {money.format(row.employmentDeposit)} · ประกันสังคม {money.format(row.socialSecurityDeduction)}
                 </span>
               </button>
             )}
@@ -371,7 +368,7 @@ export default function AdminPayroll() {
                 {showWorkDaysColumn && <th className="payroll-days px-3 py-3 text-right font-semibold">จำนวนวัน</th>}
                 <th className="payroll-wage px-3 py-3 text-right font-semibold">ค่าจ้าง</th>
                 <th className="payroll-late px-3 py-3 text-right font-semibold">สาย</th>
-                <th className="payroll-special px-3 py-3 text-right font-semibold">พิเศษ</th>
+                <th className="payroll-special px-3 py-3 text-right font-semibold">พิเศษรวม</th>
                 <th className="payroll-overage px-3 py-3 text-right font-semibold">หักลาเกิน</th>
                 <th className="payroll-deposit px-3 py-3 text-right font-semibold">ประกันงาน</th>
                 <th className="payroll-social px-3 py-3 text-right font-semibold">ประกันสังคม</th>
@@ -388,15 +385,18 @@ export default function AdminPayroll() {
                   </td>
                   {showWorkDaysColumn && <td className="px-3 py-3 text-right">
                     {row.dailyWage
-                      ? <div><span className="font-mono">{payrollSnapshot ? row.workDays : row.attendanceDays}</span><p className="mt-1 text-[10px] text-ink-soft">จากเวลาเข้างาน</p></div>
+                      ? <div><span className="font-mono">{payrollSnapshot ? row.workDays : row.attendanceDays}</span><p className="mt-1 text-xs text-ink-soft">จากเวลาเข้างาน</p></div>
                       : <span className="font-mono">-</span>}
                   </td>}
-                  <td className="px-3 py-3 text-right font-mono">{row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? 'ตั้งค่าข้อมูล' : `${money.format(row.basePay)} บาท`}</td>
+                  <td className="px-3 py-3 text-right font-mono">{row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? missingSalaryMessage(row) : `${money.format(row.basePay)} บาท`}</td>
                   <td className="px-3 py-3 text-right font-mono">
                     <span>{row.lateMinutes} นาที</span>
-                    <p className="mt-1 text-[10px] text-ink-soft">หัก {money.format(row.lateDeduction)} บาท</p>
+                    <p className="mt-1 text-xs text-ink-soft">หัก {money.format(row.lateDeduction)} บาท</p>
                   </td>
-                  <td className="px-3 py-3 text-right font-mono">{money.format(specialPayAmount(row))}</td>
+                  <td className="px-3 py-3 text-right font-mono">
+                    {money.format(specialPayAmount(row))}
+                    <p className="mt-1 text-xs text-ink-soft">เบี้ยขยัน {row.bonus == null ? 'ไม่ระบุ' : `${money.format(row.bonus)} บาท`}</p>
+                  </td>
                   <td className="px-3 py-3 text-right font-mono">{money.format(row.overQuotaLeaveDeduction)} บาท</td>
                   <td className="px-3 py-3 text-right font-mono">{money.format(row.employmentDeposit)} บาท</td>
                   <td className="px-3 py-3 text-right font-mono">{money.format(row.socialSecurityDeduction)} บาท</td>
@@ -413,7 +413,7 @@ export default function AdminPayroll() {
         <span>ยอดรับสุทธิรวม</span>
         <span className="font-mono text-base">{money.format(displayedTotalNetPay)} บาท</span>
       </div>
-      <p className="payroll-report-note hidden text-xs text-ink-soft sm:block print:block">พนักงานฝึกงาน/ทดลองงานคำนวณวันทำงานจากรายการลงเวลาอัตโนมัติ เบี้ยขยันประเมินเมื่อปิดงวดแล้วและมีข้อมูลลงเวลาโดยสายรวมไม่เกิน 100 นาที ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
+      <p className="payroll-report-note hidden text-xs text-ink-soft sm:block print:block">พนักงานฝึกงาน/ทดลองงานคำนวณวันทำงานจากรายการลงเวลาอัตโนมัติ เบี้ยขยันคำนวณเมื่อมีข้อมูลลงเวลาและสายรวมไม่เกิน 100 นาทีในงวด ยอดก่อนปิดงวดอาจเปลี่ยนแปลง ลาเกินโควตาหักตามอัตรารายวัน โดยเงินเดือนพนักงานบรรจุใช้อัตราเงินเดือนหาร 30</p>
       {slipEmployeeId && <PayrollSlipModal row={displayedRows.find((item) => item.id === slipEmployeeId)} period={period} onClose={() => setSlipEmployeeId('')} />}
       <style>{`@media print { @page { size: A4 landscape; margin: 8mm; } .payroll-report-table:not(.has-workdays) .payroll-name { width: 22% !important; } .payroll-report-table:not(.has-workdays) .payroll-wage { width: 14% !important; } .payroll-report-table:not(.has-workdays) .payroll-late { width: 8% !important; } .payroll-report-table:not(.has-workdays) .payroll-special { width: 10% !important; } .payroll-report-table:not(.has-workdays) .payroll-overage { width: 12% !important; } .payroll-report-table:not(.has-workdays) .payroll-deposit, .payroll-report-table:not(.has-workdays) .payroll-social { width: 11% !important; } .payroll-report-table:not(.has-workdays) .payroll-net { width: 12% !important; } .payroll-report-table.has-workdays .payroll-name { width: 18% !important; } .payroll-report-table.has-workdays .payroll-days { width: 8% !important; } .payroll-report-table.has-workdays .payroll-wage { width: 13% !important; } .payroll-report-table.has-workdays .payroll-late { width: 7% !important; } .payroll-report-table.has-workdays .payroll-special { width: 9% !important; } .payroll-report-table.has-workdays .payroll-overage { width: 11% !important; } .payroll-report-table.has-workdays .payroll-deposit, .payroll-report-table.has-workdays .payroll-social { width: 11% !important; } .payroll-report-table.has-workdays .payroll-net { width: 12% !important; } }`}</style>
       <style>{`@media print { @page { size: A4 portrait; margin: 8mm; } body { background: var(--color-card) !important; } main, main * { font-family: 'Noto Sans Thai', sans-serif !important; letter-spacing: 0 !important; } main { max-width: none !important; padding: 0 !important; } main > :not([hidden]) ~ :not([hidden]) { margin-top: 6px !important; } main > header { align-items: center !important; gap: 8px !important; } main > header h1 { font-size: 18px !important; } main > header p { display: none !important; } .payroll-report-summary { display: block !important; padding: 2px 0 5px !important; border: 0 !important; } .payroll-configured-count, .payroll-top-total { display: none !important; } .payroll-report-summary p:first-child { font-size: 10px !important; } .payroll-report-summary p:last-child { font-size: 14px !important; } .payroll-report-table { min-width: 0 !important; width: 100% !important; table-layout: fixed !important; font-size: 10.5px !important; border: 0 !important; } .payroll-report-table thead { font-size: 10px !important; } .payroll-report-table tr, .payroll-report-table th, .payroll-report-table td { border: 0 !important; } .payroll-report-table th, .payroll-report-table td { padding: 4px 2px !important; line-height: 1.15 !important; } .payroll-report-table .payroll-name { width: 20%; } .payroll-report-table .payroll-days { width: 8%; } .payroll-report-table .payroll-wage { width: 13%; } .payroll-report-table .payroll-late { width: 8%; } .payroll-report-table .payroll-special { width: 10%; } .payroll-report-table .payroll-overage { width: 12%; } .payroll-report-table .payroll-deposit, .payroll-report-table .payroll-social { width: 12%; } .payroll-report-table .payroll-net { width: 15%; } .payroll-report-table tbody tr:nth-child(even) { background: var(--color-bg-muted) !important; } .payroll-report-table td p { margin-top: 1px !important; font-size: 9px !important; } .payroll-report-total { display: flex !important; margin-top: 6px !important; border: 0 !important; } .payroll-report-note { display: none !important; } .overflow-x-auto { overflow: visible !important; } .no-print { display: none !important; } }`}</style>

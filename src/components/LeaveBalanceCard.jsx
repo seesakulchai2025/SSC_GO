@@ -16,10 +16,10 @@ export default function LeaveBalanceCard({ leaveType, used, quota, variant = 'ba
         >
           <div className="grid size-16 place-content-center rounded-full bg-white sm:size-24">
             <span className={`font-mono text-lg font-semibold leading-6 sm:text-2xl ${over ? 'text-clay' : 'text-ink'}`}>{formatDays(remaining)}</span>
-            <span className="text-[10px] leading-4 text-ink-soft sm:text-xs">วันคงเหลือ</span>
+            <span className="text-xs text-ink-soft">วันคงเหลือ</span>
           </div>
         </div>
-        <p className={`text-[10px] leading-4 text-ink-soft sm:text-xs ${over ? 'text-clay' : ''}`}>ใช้ {formatDays(used)} / {formatDays(quota)} วัน</p>
+        <p className={`text-xs text-ink-soft ${over ? 'text-clay' : ''}`}>ใช้ {formatDays(used)} / {formatDays(quota)} วัน</p>
       </article>
     )
   }

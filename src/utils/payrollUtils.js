@@ -1,11 +1,42 @@
-import { calcDaysWithDuration, toISODate } from './dateUtils.js'
+import { attendanceDay, calcDaysWithDuration, toISODate } from './dateUtils.js'
+
+export function normalizeEmploymentStatus(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+export function parseBaseSalary(value) {
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(text)) return null
+  const amount = Number(text.replace(/,/g, ''))
+  return Number.isFinite(amount) ? amount : null
+}
+
+export function calculateBasePay(status, baseSalary, attendanceDays) {
+  if (status === 'permanent_pc') return 0
+  if (baseSalary == null || baseSalary <= 0) return null
+  if (status === 'permanent') return baseSalary
+  if (status === 'intern' || status === 'probation') return baseSalary * attendanceDays
+  return null
+}
+
+export function missingSalaryMessage(row) {
+  if (!['permanent', 'permanent_pc', 'probation', 'intern'].includes(normalizeEmploymentStatus(row.employmentStatus))) return 'ยังไม่ระบุสถานะ'
+  return 'ยังไม่ใส่ฐานเงินเดือน'
+}
+
+export function calculateAttendanceBonus(attendanceDays, lateMinutes, configuredBonus) {
+  const bonusEligible = attendanceDays > 0 && lateMinutes <= 100
+  return { bonusEligible, bonus: bonusEligible ? Number(configuredBonus) || 0 : 0 }
+}
 
 export function calculateSpecialPay(overtimeMinutes, overtimeRatePerHour, attendanceBonus) {
   const overtimePay = (Number(overtimeMinutes) || 0) / 60 * (Number(overtimeRatePerHour) || 0)
   return overtimePay + (Number(attendanceBonus) || 0)
 }
 
-export function isPayrollPeriodClosed(period, today = toISODate(new Date())) {
+export function isPayrollPeriodClosed(period, today = attendanceDay(new Date())) {
   if (!period) return false
   const [year, month] = period.split('-').map(Number)
   const lastDay = new Date(year, month, 0)
@@ -13,14 +44,13 @@ export function isPayrollPeriodClosed(period, today = toISODate(new Date())) {
 }
 
 export function defaultPayrollPeriod(date = new Date()) {
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate() === 1 ? 0 : date.getDate())
-  const year = target.getFullYear()
-  const month = String(target.getMonth() + 1).padStart(2, '0')
-  return `${year}-${month}`
+  const [year, month, day] = attendanceDay(date).split('-').map(Number)
+  const target = new Date(Date.UTC(year, month - 1 - (day === 1 ? 1 : 0), 1))
+  return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 export function isPayrollClosingDay(date = new Date()) {
-  return date.getDate() === 1
+  return attendanceDay(date).endsWith('-01')
 }
 
 function daysInRange(request, rangeStart, rangeEnd, holidays) {

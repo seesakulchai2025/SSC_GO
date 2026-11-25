@@ -117,11 +117,12 @@ export default function TeamCalendar() {
                   {cell.dayNum}
                 </span>
                 {items.length > 0 && (
-                  <div className="mt-0.5 flex flex-wrap gap-0.5">
-                    {items.slice(0, 4).map((r) => (
-                      <span key={r.id} className="block w-1.5 h-1.5 rounded-full bg-ink" title={r.employeeName} />
+                  <div className="mt-0.5 flex flex-wrap items-center gap-px">
+                    {items.length > 4 ? (
+                      <span className="text-xs leading-4 text-ink-soft">{items.length}</span>
+                    ) : items.map((r) => (
+                      <span key={r.id} className="block h-1 w-1 rounded-full bg-ink" title={r.employeeName} />
                     ))}
-                    {items.length > 4 && <span className="text-[9px] text-ink-soft">+{items.length - 4}</span>}
                   </div>
                 )}
               </button>

@@ -13,7 +13,7 @@ const ADMIN_NAV_ITEMS = [
 function Badge({ count }) {
   if (!count) return null
   return (
-    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-[10px] font-bold leading-5 text-white">
+    <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-clay px-1.5 text-xs font-bold leading-5 text-white">
       {count > 9 ? '9+' : count}
     </span>
   )
@@ -39,7 +39,7 @@ export default function Navbar() {
   function Navigation() {
     return (
       <>
-        <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase text-ink-soft/70">การใช้งาน</p>
+        <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase text-ink-soft/70">การใช้งาน</p>
         <NavLink to="/" end className={linkClass} onClick={() => handleNavigation('/')}>
           หน้าหลัก
         </NavLink>
@@ -57,7 +57,7 @@ export default function Navbar() {
 
         {isAdmin && (
           <>
-            <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase text-ink-soft/70">จัดการระบบ</p>
+            <p className="px-3 pb-1 pt-5 text-xs font-semibold uppercase text-ink-soft/70">จัดการระบบ</p>
             {ADMIN_NAV_ITEMS.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={linkClass} onClick={() => handleNavigation(item.to)}>
                 <span>{item.label}</span>

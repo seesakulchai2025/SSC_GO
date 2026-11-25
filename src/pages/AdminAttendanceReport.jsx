@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
-import { ATTENDANCE_EVENTS, getAttendanceEvents } from '../utils/attendanceUtils'
-import { formatDateDMY, formatDateTimeDMY, todayISO } from '../utils/dateUtils'
+import { ATTENDANCE_EVENTS, getAttendanceEvents, getAttendanceLateMinutes, isOffsite, summarizeMonthlyAttendance } from '../utils/attendanceUtils'
+import { attendanceDay, bangkokTime, formatDateDMY, todayISO } from '../utils/dateUtils'
 import { notifyError, notifySuccess } from '../components/ToastViewport'
 
 const PERIODS = [
@@ -21,7 +21,7 @@ function formatShortDate(date) {
 
 function formatTime(value) {
   if (!value) return '-'
-  return new Date(value).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return bangkokTime(value, { seconds: true })
 }
 
 function getDateRange(period, value) {
@@ -66,11 +66,20 @@ export default function AdminAttendanceReport() {
 
   const { from, to } = getDateRange(period, periodValue)
   const filteredRecords = useMemo(() => records
-    .filter((record) => record.attendanceDate && record.attendanceDate >= from && record.attendanceDate <= to)
+    .filter((record) => { const date = attendanceDay(record.attendanceDate); return date && date >= from && date <= to })
     .filter((record) => !employeeFilter || record.employeeId === employeeFilter)
-    .sort((a, b) => (b.attendanceDate || '').localeCompare(a.attendanceDate || '') || (a.employeeName || '').localeCompare(b.employeeName || '', 'th')),
+    .sort((a, b) => (attendanceDay(b.attendanceDate) || '').localeCompare(attendanceDay(a.attendanceDate) || '') || (a.employeeName || '').localeCompare(b.employeeName || '', 'th')),
   [records, from, to, employeeFilter])
-  const totalDeduction = filteredRecords.reduce((sum, record) => sum + (record.deductionBaht || 0), 0)
+  const months = new Set(filteredRecords.map((record) => attendanceDay(record.attendanceDate).slice(0, 7)))
+  const totalDeduction = [...months].reduce((sum, month) => sum + summarizeMonthlyAttendance(filteredRecords, month).deductionBaht, 0)
+  const offsiteCounts = new Map()
+  filteredRecords.filter(isOffsite).forEach((record) => {
+    const month = attendanceDay(record.attendanceDate).slice(0, 7)
+    const key = `${record.employeeId}:${month}`
+    const current = offsiteCounts.get(key) || { name: record.employeeName, month, days: new Set() }
+    current.days.add(attendanceDay(record.attendanceDate))
+    offsiteCounts.set(key, current)
+  })
 
   async function exportExcel() {
     try {
@@ -78,18 +87,20 @@ export default function AdminAttendanceReport() {
       const rows = filteredRecords.map((record) => {
       const events = getAttendanceEvents(record)
       const row = {
-        วันที่: formatDateDMY(record.attendanceDate),
+        วันที่: formatDateDMY(attendanceDay(record.attendanceDate)),
         พนักงาน: record.employeeName,
         แผนก: record.department || '',
+        สถานะ: isOffsite(record) ? 'นอกสถานที่' : record.status === 'late' ? 'สาย' : 'ปกติ',
+        รายละเอียดนอกสถานที่: record.offsite?.destination || record.offSiteDetails || '',
       }
       ATTENDANCE_EVENTS.forEach((event) => {
         const scan = events[event.id]
-        row[`${event.label}เวลา`] = scan?.clientAt ? formatDateTimeDMY(scan.clientAt, { seconds: true }) : ''
+        row[`${event.label}เวลา`] = scan?.clientAt ? `${formatDateDMY(attendanceDay(scan.clientAt))} ${bangkokTime(scan.clientAt, { seconds: true })}` : ''
         row[`${event.label}พิกัด`] = scan?.latitude != null && scan?.longitude != null ? `${scan.latitude}, ${scan.longitude}` : ''
         row[`${event.label}ระยะจากร้าน(เมตร)`] = scan?.distanceMeters ?? ''
       })
-      row['สาย(นาที)'] = record.lateMinutes || 0
-      row['หัก(บาท)'] = record.deductionBaht || 0
+      row['สาย(นาที)'] = getAttendanceLateMinutes(record)
+      row['หัก(บาท)'] = getAttendanceLateMinutes(record)
       return row
       })
       const worksheet = XLSX.utils.json_to_sheet(rows)
@@ -136,6 +147,7 @@ export default function AdminAttendanceReport() {
           <p className="font-semibold text-ink">{from && to ? `${formatDate(from)} – ${formatDate(to)}` : 'เลือกช่วงเวลารายงาน'}</p>
           <p className="text-sm text-ink-soft">{filteredRecords.length} รายการ · ยอดหักรวม {totalDeduction} บาท</p>
         </div>
+        {offsiteCounts.size > 0 && <section className="card p-3 text-sm"><h3 className="font-semibold">สรุปวันนอกสถานที่ต่อเดือน</h3>{[...offsiteCounts.values()].map((item) => <p key={`${item.name}-${item.month}`}>{item.name} · {item.month} · {item.days.size} วัน</p>)}</section>}
       </div>
 
       <section className="report-compact-card report-compact-table-frame card report-print-card overflow-x-auto">
@@ -157,22 +169,24 @@ export default function AdminAttendanceReport() {
               const events = getAttendanceEvents(record)
               return (
                 <tr key={record.id} className="border-b border-ink/5 align-top last:border-0">
-                  <td className="whitespace-nowrap p-3 text-center font-mono">{formatShortDate(record.attendanceDate)}</td>
-                  <td className="whitespace-nowrap p-3 text-center"><span className="font-semibold">{record.employeeName}</span><span className="block text-xs text-ink-soft">{record.department || ''}</span></td>
+                  <td className="whitespace-nowrap p-3 text-center font-mono">{formatShortDate(attendanceDay(record.attendanceDate))}</td>
+                  <td className="whitespace-nowrap p-3 text-center"><span className="font-semibold">{record.employeeName}</span><span className="block text-xs text-ink-soft">{record.department || ''}</span>{isOffsite(record) && <span className="block text-xs font-semibold">นอกสถานที่ · {record.offsite?.destination || record.offSiteDetails}</span>}{record.edited && <span className="block text-xs font-semibold">แก้ไขแล้ว</span>}</td>
                   {ATTENDANCE_EVENTS.map((event) => (
                     <td key={event.id} className="whitespace-nowrap p-3 text-center">
                       {events[event.id] ? (
                         <div className="report-compact-attendance-event">
                           <p className="font-mono">{formatTime(events[event.id].clientAt)}</p>
-                          <a href={`https://www.google.com/maps?q=${events[event.id].latitude},${events[event.id].longitude}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brass-dark underline">
-                            แผนที่ · {events[event.id].distanceMeters} ม.
-                          </a>
+                          {Number.isFinite(events[event.id].latitude) && Number.isFinite(events[event.id].longitude) && (
+                            <a href={`https://www.google.com/maps?q=${events[event.id].latitude},${events[event.id].longitude}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brass-dark underline">
+                              แผนที่ · {events[event.id].distanceMeters} ม.
+                            </a>
+                          )}
                         </div>
                       ) : <span className="text-ink-soft">-</span>}
                     </td>
                   ))}
-                  <td className="whitespace-nowrap p-3 text-center font-mono">{record.lateMinutes || 0} นาที</td>
-                  <td className="whitespace-nowrap p-3 text-center font-mono">{record.deductionBaht || 0}</td>
+                  <td className="whitespace-nowrap p-3 text-center font-mono">{getAttendanceLateMinutes(record)} นาที</td>
+                  <td className="whitespace-nowrap p-3 text-center font-mono">{getAttendanceLateMinutes(record)}</td>
                 </tr>
               )
             })}

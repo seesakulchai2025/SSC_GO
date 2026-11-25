@@ -114,7 +114,7 @@ export default function EmployeeDashboard() {
       <TodayLeaveCard />
 
       <div>
-        <h2 className="font-display font-semibold text-ink mb-2 text-[15px] sm:mb-3 sm:text-base">โควตาวันลาปีนี้</h2>
+        <h2 className="font-display font-semibold text-ink mb-2 text-base sm:mb-3">โควตาวันลาปีนี้</h2>
         <div className={`grid ${quotaGridColumns} gap-2 sm:gap-3`}>
           {visibleLeaveTypes.map((t) => (
             <LeaveBalanceCard key={t.id} leaveType={t} used={usedByType[t.id] || 0} quota={quotaByType[t.id]} variant="donut" />
@@ -125,7 +125,7 @@ export default function EmployeeDashboard() {
       <LeaveRequestForm leaveTypes={visibleLeaveTypes} remainingByType={remainingByType} />
 
       <div>
-        <h2 className="font-display font-semibold text-ink mb-2 text-[15px] sm:mb-3 sm:text-base">ประวัติการลา</h2>
+        <h2 className="font-display font-semibold text-ink mb-2 text-base sm:mb-3">ประวัติการลา</h2>
         <LeaveHistoryList
           requests={requests}
           mobileLimit={3}

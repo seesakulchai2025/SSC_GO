@@ -1,4 +1,4 @@
-import { calculateSpecialPay } from '../utils/payrollUtils'
+import { calculateSpecialPay, missingSalaryMessage } from '../utils/payrollUtils'
 import { formatThaiDate } from '../utils/dateUtils'
 import { notifyError, notifySuccess } from './ToastViewport'
 
@@ -24,8 +24,8 @@ export default function PayrollSlipModal({ row, period, onClose }) {
     ['อัตราค่า OT', amount(row.overtimeRatePerHour)],
     ['ค่า OT', amount(row.overtimePay ?? ((Number(row.overtimeMinutes) || 0) / 60 * (Number(row.overtimeRatePerHour) || 0)))],
     ['วันลาเกินโควตา', `${row.leaveSummary.overQuotaDays} วัน`],
-    ['ค่าจ้าง', row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? 'ยังตั้งค่าไม่ครบ' : amount(row.basePay)],
-    ['เบี้ยขยัน', amount(row.bonus)],
+    ['ค่าจ้าง', row.companyPaidSalary ? 'บริษัทจ่าย' : row.basePay == null ? missingSalaryMessage(row) : amount(row.basePay)],
+    ['เบี้ยขยัน', row.bonus == null ? 'ไม่ระบุ' : amount(row.bonus)],
     ['รายการพิเศษรวม', amount(row.specialPay ?? calculateSpecialPay(row.overtimeMinutes, row.overtimeRatePerHour, row.bonus))],
     ['หักลาเกินโควตา', amount(row.overQuotaLeaveDeduction)],
     ['เงินประกันการทำงาน', amount(row.employmentDeposit)],
